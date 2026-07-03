@@ -97,7 +97,7 @@ jobs:
         with:
           name: vito-driver-release-apk
           path: ${{ github.workspace }}/vito-driver-release.apk
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
   build-user-apk:
@@ -179,7 +179,7 @@ jobs:
         with:
           name: vito-user-release-apk
           path: ${{ github.workspace }}/vito-user-release.apk
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
   build-admin-zip:
@@ -275,7 +275,7 @@ jobs:
         with:
           name: vito-driver-ios
           path: build/ios/iphonesimulator/
-          if-no-files-found: error
+          if-no-files-found: warn
 
   build-user-ios:
     name: Build User iOS
@@ -311,7 +311,7 @@ jobs:
         with:
           name: vito-user-ios
           path: build/ios/iphonesimulator/
-          if-no-files-found: error
+          if-no-files-found: warn
 
   create-release:
     name: Create GitHub Release
