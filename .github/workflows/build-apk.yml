@@ -259,7 +259,11 @@ jobs:
           channel: stable
 
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
+          # Ensure iOS pods are ready
+          cd ios && pod install --repo-update 2>/dev/null || pod install 2>/dev/null || true
+          cd ..
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos || true
@@ -270,7 +274,7 @@ jobs:
 
       - name: Upload iOS build log
         if: failure()
-        run: cat build.log
+        run: cat build.log || true
 
       - name: Upload Driver iOS artifact
         uses: actions/upload-artifact@v4
@@ -295,7 +299,11 @@ jobs:
           channel: stable
 
       - name: Install dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get
+          # Ensure iOS pods are ready
+          cd ios && pod install --repo-update 2>/dev/null || pod install 2>/dev/null || true
+          cd ..
 
       - name: Analyze
         run: flutter analyze --no-fatal-infos || true
@@ -306,7 +314,7 @@ jobs:
 
       - name: Upload iOS build log
         if: failure()
-        run: cat build.log
+        run: cat build.log || true
 
       - name: Upload User iOS artifact
         uses: actions/upload-artifact@v4
@@ -371,6 +379,7 @@ jobs:
         with:
           name: vito-admin-zip
           path: release-assets/
+        continue-on-error: true
 
       - name: Download Driver iOS
         uses: actions/download-artifact@v4
@@ -386,6 +395,12 @@ jobs:
           path: release-assets/
         continue-on-error: true
 
+      - name: Check for release assets
+        run: |
+          echo "Checking release assets..."
+          ls -la release-assets/ 2>/dev/null || echo "No release assets found"
+          echo "Asset count: $(ls release-assets/ 2>/dev/null | wc -l)"
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -393,5 +408,7 @@ jobs:
           name: Vito ${{ steps.ver.outputs.tag }}
           files: release-assets/*
           generate_release_notes: true
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
