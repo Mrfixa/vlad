@@ -327,7 +327,7 @@ jobs:
 
   create-release:
     name: Create GitHub Release
-    needs: [build-driver-apk, build-user-apk, build-admin-zip, build-driver-ios, build-user-ios]
+    needs: [build-driver-apk, build-user-apk, build-admin-zip]
     runs-on: ubuntu-latest
     permissions:
       contents: write
