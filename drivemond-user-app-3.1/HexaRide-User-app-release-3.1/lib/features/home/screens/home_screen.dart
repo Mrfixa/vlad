@@ -407,8 +407,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ) :
           const SizedBox()
-        ]),
-      ),
+        ]);
+      }),
     );
   }
 

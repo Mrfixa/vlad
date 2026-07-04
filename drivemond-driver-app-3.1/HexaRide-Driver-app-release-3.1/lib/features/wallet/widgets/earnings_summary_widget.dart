@@ -107,7 +107,7 @@ class _EarningsCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              PriceConverter.convertPrice(amount),
+              PriceConverter.convertPrice(context, amount),
               style: textBold.copyWith(
                 fontSize: Dimensions.fontSizeDefault,
                 color: Theme.of(context).textTheme.bodyLarge?.color,

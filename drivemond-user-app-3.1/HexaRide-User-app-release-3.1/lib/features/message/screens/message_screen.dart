@@ -268,6 +268,7 @@ class _MessageScreenState extends State<MessageScreen> {
                     ),
                   )
                 ]),
+                ]) :
                 SizedBox(height: 50, child: Container(
                   padding: EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeSmall),
                   decoration: BoxDecoration(

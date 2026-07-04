@@ -81,7 +81,7 @@ class OnlineOfflineToggleWidget extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               Get.back();
-              controller.toggleOnlineStatus();
+              controller.profileOnlineOffline(!currentlyOnline);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: currentlyOnline ? Colors.red : Colors.green,

@@ -50,7 +50,7 @@ class _AppRatingDialogState extends State<AppRatingDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset(Images.appLogo, width: 80, height: 80),
+            Image.asset(Images.logo, width: 80, height: 80),
             const SizedBox(height: Dimensions.paddingSizeDefault),
             Text(
               'rate_your_experience'.tr,
