@@ -9,6 +9,7 @@ on:
       - 'vlad'
       - 'claude/analyze-mart-qr-code-FySPn'
       - 'claude/init-yn5zw0'
+      - 'claude/claude-md-docs-ksrmcf'
   workflow_dispatch:
     inputs:
       version:
