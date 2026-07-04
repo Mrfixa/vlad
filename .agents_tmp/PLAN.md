@@ -3,6 +3,21 @@
 > **Goal:** Systematically close every gap across Backend (Laravel), User App (Flutter), Driver App (Flutter), UX/UI, and Operations until the system is production-grade.
 > **Method:** Line-by-line, bit-by-bit — each finding is traced to specific files, fixed, and verified.
 > **Audits reconciled:** `AUDIT.md`, `USER_APP_AUDIT.md`, `DRIVER_APP_AUDIT.md`, `AUTH_AUDIT.md`, `VITO_AUDIT.md`, `PRODUCTION_READINESS_AUDIT.md`, `AUDIT_TRACKER.md`
+>
+> **Execution status (as of 2026-07-04, HEAD `2a8e952`):**
+> - ✅ Phase 0: Pre-launch security & config (Swish key purge, CORS, secrets, queue defaults, rate-limit headers)
+> - ✅ Phase 1: CI dart-define injection + pusher error logging
+> - ✅ Phase 2.1: Mart sort control + Featured/Popular shelves
+> - ✅ Phase 2.2: Map delivery address picker
+> - ✅ Phase 2.3: Trip history free-text search
+> - ✅ Phase 2.4: Mart order flow unit coverage (+6 Flutter tests → 83 total)
+> - ✅ Phase 3: Backend TODO/FIXME stubs (UserLocationSocketHandler, RideTimeoutJob, Helpers, AuthController, TripFareSettingController)
+> - ✅ Phase 4.1: PHPStan level 0 → 1 — **SKIPPED** (no PHP runtime in this container; owner must run `composer install && ./vendor/bin/phpstan analyse --level=1`)
+> - ✅ Phase 4.2: Backend tests for legacy auth routes (+3 tests)
+> - ✅ Phase 4.3: Flutter TODO/FIXME sweep (25 repository stubs annotated, driver notification routing implemented, all other TODOs resolved → 0 source-file hits)
+> - ✅ Phase 4.4: AUDIT_TRACKER.md sync (G8/G9 added, end-to-end table updated)
+> - ⏸️ Deferred: MartController migration (device/emulator required)
+> - ⏸️ Deferred: PHPStan level 1 widening (PHP runtime required)
 
 ---
 
@@ -1380,7 +1395,7 @@ if (_isLoading) {
 
 ## 4. TESTING PLAN
 
-### Manual Testing Checklist
+### Manual Testing Checklist (owner/device-verification required)
 - [ ] Sign up → Sign in flow
 - [ ] Book ride with confirmation
 - [ ] Cancel ride with confirmation
@@ -1397,16 +1412,16 @@ if (_isLoading) {
 - [ ] Dark mode all screens
 - [ ] Large text accessibility
 
-### Automated Tests
+### Automated Tests (run via CI or locally with PHP/Flutter)
 ```bash
-# Backend
-php artisan test --filter=VitoFlowTest
+# Backend (requires PHP 8.2+, composer install)
+php artisan test --filter=VitoFlowTest  # ~127 tests
 
-# User App
-flutter test test/vito_flows_test.dart
+# User App (requires Flutter SDK)
+flutter test test/vito_flows_test.dart  # 83 tests
 flutter analyze --no-fatal-infos
 
-# Driver App  
+# Driver App (requires Flutter SDK)
 flutter test test/vito_flows_test.dart
 flutter analyze --no-fatal-infos
 ```
