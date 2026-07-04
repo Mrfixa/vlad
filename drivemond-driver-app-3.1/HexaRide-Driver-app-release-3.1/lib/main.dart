@@ -46,11 +46,11 @@ Future<void> main() async {
     try {
       if(GetPlatform.isAndroid) {
         await Firebase.initializeApp(
-          options: const FirebaseOptions(
-            apiKey: "AIzaSyCFGqSEiWMItei_AFIUgdM53PWrvyGmjFY",
-            appId: "1:76471554747:android:28346318a6d400326d0f9e",
-            messagingSenderId: "76471554747",
-            projectId: "drivevalley-fdb7f",
+          options: FirebaseOptions(
+            apiKey: const String.fromEnvironment('FIREBASE_API_KEY', defaultValue: 'AIzaSyCFGqSEiWMItei_AFIUgdM53PWrvyGmjFY'),
+            appId: const String.fromEnvironment('FIREBASE_APP_ID', defaultValue: '1:76471554747:android:28346318a6d400326d0f9e'),
+            messagingSenderId: const String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID', defaultValue: '76471554747'),
+            projectId: const String.fromEnvironment('FIREBASE_PROJECT_ID', defaultValue: 'drivevalley-fdb7f'),
           ),
         );
       } else {

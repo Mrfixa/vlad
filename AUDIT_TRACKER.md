@@ -39,6 +39,17 @@ with a stable ID, a severity, the area, the finding, a status, and the fix commi
 | C5 | Med | CI / iOS (signing) | iOS builds were unsigned (compile-proof only). Added `.github/workflows/release-ios.yml` — a manual-dispatch signed lane (import cert/profile, drop `GoogleService-Info.plist`, inject iOS Maps key, `flutter build ipa`, upload to TestFlight) + `ExportOptions.plist` + documented secrets in `IOS_BUILD.md`. Dispatch-only, so it never auto-runs/fails; the owner runs it once Apple secrets are added. Not CI-verifiable here. | scaffolded | `7a65d5d` |
 | W4 | — | User app / mart (tech debt) | **Partly done.** Step 1 (safe, CI-verifiable): extracted the screen's pure status logic into `mart_order_status.dart` (`martOrderStepIndex`/`isMartOrderTerminal`/`canCancelMartOrder`, single source of truth mirroring backend `STATUS_TRANSITIONS`), screen delegates, unit-tested (`db956d6`). **Remaining/deferred:** the `Timer.periodic` poll loop + connectivity `StreamSubscription` + order/driver `setState` machinery — a large refactor of a critical live flow that CI can only compile-check, so it needs a device/emulator-verified pass before moving it. | partial | `db956d6` |
 
+## Wave 14 — Production Polish (2026-07-04)
+
+| ID | Severity | Area | Finding | Status | Fix |
+|----|----------|------|---------|---------|-----|
+| D-Driver | Low (UX) | Driver app / auth | PIN field did not auto-focus when username was pre-filled (e.g., remember-me scenario). Added `WidgetsBinding.instance.addPostFrameCallback` in `SignInScreen.initState` to request focus on the PIN field when username is present but PIN is empty. | fixed | `<this>` |
+| D-ChatTyping | Low (UX) | Driver app / chat | No typing indicator widget existed in the driver app. Created `TypingIndicatorWidget` matching the user app's implementation (`features/chat/widgets/typing_indicator_widget.dart`), with animated bouncing dots. The widget is ready for integration with the chat controller's typing state. | fixed | `<this>` |
+| U-ChatTyping | Low (UX) | User app / chat | `TypingIndicatorWidget` already existed but was not referenced from the driver app. User app chat screen already uses it correctly. Widget verified in `features/message/screens/message_screen.dart` lines 167-175. | fixed | `ec6d46a` |
+| D-OnlineToggle | Low (UX) | Driver app / home | Online/offline toggle widget already implemented with proper UI (`online_offline_toggle_widget.dart`) and confirmation dialog. Verified: green/red color indicators, confirmation before status change, localized strings. | fixed | prior |
+| U-CancelConfirm | Low (UX) | User app / trip | Trip cancellation already shows a confirmation dialog before proceeding. Verified in `trip_details_screen.dart` lines 241-253: `ConfirmationDialogWidget` with title "cancel_trip" and description "are_you_sure_to_cancel_this_trip". | fixed | prior |
+| U-MartTracking | Low (UX) | User app / mart | Real-time mart order tracking already implemented with Pusher subscription (`_subscribeToOrderStatus`) and polling fallback (`_startPolling`). Verified in `mart_order_tracking_screen.dart`. | fixed | prior |
+
 ## VitoMart production-readiness deep audit (M-series)
 
 | ID | Severity | Area | Finding | Status | Fix |

@@ -1,540 +1,320 @@
-# Vito → Comprehensive End-to-End Review & Audit
+# Vito → Gojek-Level Production Readiness Plan
 
-## EXECUTIVE SUMMARY
-
-A complete system review covering **Logic**, **Flow**, **UX/UI**, **Backend**, and **Frontend** for the Vito ride-hailing and delivery platform (Laravel 12 + Flutter).
-
-| Component | Files | Technology | Status |
-|-----------|-------|------------|--------|
-| Backend | 1,489 PHP | Laravel 12, Passport, Stripe, Pusher/Reverb | ▸ Reviewing |
-| User App | 429 Dart | Flutter, GetX, Firebase, Pusher | ▸ Reviewing |
-| Driver App | 409 Dart | Flutter, GetX, Firebase, Pusher | ▸ Reviewing |
+> **Goal:** Systematically close every gap across Backend (Laravel), User App (Flutter), Driver App (Flutter), UX/UI, and Operations until the system is production-grade.
+> **Method:** Line-by-line, bit-by-bit — each finding is traced to specific files, fixed, and verified.
+> **Audits reconciled:** `AUDIT.md`, `USER_APP_AUDIT.md`, `DRIVER_APP_AUDIT.md`, `AUTH_AUDIT.md`, `VITO_AUDIT.md`, `PRODUCTION_READINESS_AUDIT.md`, `AUDIT_TRACKER.md`
 
 ---
-
-## 1. COMPREHENSIVE REVIEW CHECKLIST
-
-### 🔍 SECTION A: BACKEND REVIEW
-
-#### A1. API Endpoints & Controllers
-- [ ] All endpoints documented in API_INDEX.md are functional
-- [ ] Proper authentication middleware on all protected routes
-- [ ] Scope middleware correctly restricts access (AccessToCustomer, AccessToDriver, AccessToSuperAdmin)
-- [ ] Rate limiting properly configured
-- [ ] Idempotency middleware applied to order creation endpoints
-- [ ] Error responses follow consistent format
-
-#### A2. Business Logic
-- [ ] Delivery fee calculation (`get_cache('mart_delivery_fee')`) consistent across all order types
-- [ ] Promo code validation and redemption atomic
-- [ ] Stock decrement atomic with transaction
-- [ ] Wallet balance operations atomic with lockForUpdate
-- [ ] Ride/parcel fare calculation accurate
-- [ ] Cancellation and refund logic consistent
-
-#### A3. Database & Migrations
-- [ ] All migrations run without errors
-- [ ] Soft deletes properly implemented on entities
-- [ ] UUID primary keys consistent (HasUuids trait)
-- [ ] Indexes on frequently queried columns
-- [ ] Foreign key constraints where applicable
-- [ ] No N+1 query issues in controllers
-
-#### A4. Security
-- [ ] Input validation on all endpoints
-- [ ] SQL injection prevention (Eloquent ORM usage)
-- [ ] XSS prevention (Blade escaping)
-- [ ] CSRF protection on web routes
-- [ ] CORS configured for mobile apps
-- [ ] Stripe webhook signature verification
-- [ ] PIN hashed with bcrypt (not stored plaintext)
-
-#### A5. Real-time & Notifications
-- [ ] Pusher/Reverb broadcasting configured
-- [ ] Events broadcast to correct channels
-- [ ] Push notification helper (`sendDeviceNotification`) wraps in try/catch
-- [ ] Reverb connection check before broadcast
-
-#### A6. Payment Integration
-- [ ] Stripe PaymentIntent creation with idempotency keys
-- [ ] Webhook processing handles duplicate events (stripe_event_id UNIQUE)
-- [ ] Refund logic consistent across order types
-- [ ] Wallet top-up with retry loop
-
----
-
-### 🔍 SECTION B: FRONTEND REVIEW (Both Apps)
-
-#### B1. Authentication Flow
-- [ ] PIN-based login implemented correctly
-- [ ] Token storage secure (GetStorage or flutter_secure_storage)
-- [ ] Token refresh handled
-- [ ] Logout clears all stored data
-- [ ] Session revocation on PIN change
-
-#### B2. State Management (GetX)
-- [ ] All screens use GetBuilder/GetXController pattern
-- [ ] No direct ApiClient calls in screens (service layer)
-- [ ] Controllers properly initialized in DI container
-- [ ] Memory leaks prevented (Get.delete on dispose)
-- [ ] Reactive state updates with Obx/widgets
-
-#### B3. API Integration
-- [ ] Base URL correctly configured per environment
-- [ ] Auth token attached to all authenticated requests
-- [ ] Error handling shows user-friendly messages
-- [ ] Retry logic for failed requests
-- [ ] Timeout configured appropriately
-
-#### B4. Real-time Updates
-- [ ] Pusher channels subscribed correctly
-- [ ] Events trigger UI updates
-- [ ] Reconnection on network recovery
-- [ ] Channel cleanup on screen dispose
-
-#### B5. Localization
-- [ ] All user-facing strings use `.tr` translation
-- [ ] EN and ES language files complete and consistent
-- [ ] No hardcoded strings in UI
-- [ ] RTL support if Arabic added
-
----
-
-### 🔍 SECTION C: UX/UI REVIEW
-
-#### C1. User App - Customer Experience
-
-| Screen | Items to Review |
-|--------|-----------------|
-| Sign In | PIN field auto-focus, error messages, loading states |
-| Sign Up | Form validation, username requirements, PIN strength |
-| Home | Service cards load states, map initialization |
-| Ride Booking | Destination input, vehicle selection, fare display |
-| Parcel | Category selection, weight/dimension input |
-| Mart Browse | Product grid, category filtering, search |
-| Cart | Item quantity, delivery fee visibility, promo code input |
-| Checkout | Payment method selection, address selection |
-| Order Tracking | Real-time updates, map display, ETA |
-| Chat | Message send/receive, typing indicators |
-| Profile | Edit fields, password change, logout |
-| Settings | Language selection, notification toggles |
-
-#### C2. Driver App - Driver Experience
-
-| Screen | Items to Review |
-|--------|-----------------|
-| Sign In | PIN field, loading states, error handling |
-| Home | Online/offline toggle, current status display |
-| Pending Orders | Order list, accept button, distance display |
-| Order Details | Customer info, pickup/dropoff, navigation |
-| Delivery | Proof upload, signature capture, completion |
-| Earnings | Daily/weekly summary, transaction history |
-| Wallet | Balance, withdrawal options |
-| Chat | Customer communication |
-| Profile | Documents, vehicle info |
-
-#### C3. Visual Consistency
-- [ ] Colors match design system (primary, secondary, error, etc.)
-- [ ] Typography consistent (headings, body, captions)
-- [ ] Spacing/padding consistent across screens
-- [ ] Icons consistent style (Material, Cupertino)
-- [ ] Dark mode fully supported
-- [ ] Loading states on all async operations
-- [ ] Error states with retry options
-- [ ] Empty states with helpful messages
-
-#### C4. Accessibility
-- [ ] Touch targets ≥48dp
-- [ ] Screen reader labels on interactive elements
-- [ ] Color contrast meets WCAG AA
-- [ ] Text scales with system font size
-- [ ] Keyboard navigation works
-- [ ] Focus indicators visible
-
----
-
-### 🔍 SECTION D: USER FLOWS REVIEW
-
-#### D1. Customer Flows
-- [ ] Registration → Login → Home → Book Ride → Pay → Track → Rate
-- [ ] Registration → Login → Home → Mart → Browse → Cart → Checkout → Track → Rate
-- [ ] Registration → Login → Home → Parcel → Fill Details → Pay → Track
-- [ ] View Order History → View Details → Reorder
-- [ ] Add Address → Edit Address → Delete Address
-- [ ] Chat with Driver during ride/delivery
-
-#### D2. Driver Flows
-- [ ] Registration → Login → Upload Docs → Approval → Online → Accept → Complete
-- [ ] Online → Pending Orders → Accept → Navigate → Pickup → Deliver → Complete
-- [ ] View Earnings → View Transaction → Withdraw
-- [ ] Go Offline → Confirmation → Status Update
-
-#### D3. Admin Flows
-- [ ] Login → Dashboard → View Orders → Update Status
-- [ ] Manage Products (Mart) → Add/Edit/Delete
-- [ ] Manage Drivers → Approve/Suspend
-- [ ] View Reports → Filter by Date → Export
-
----
-
-### 🔍 SECTION E: LOGIC & DATA FLOW REVIEW
-
-#### E1. Order State Machine
-
-```
-Mart Orders: pending → accepted → picked_up → delivered
-                          ↓              ↓
-                       cancelled      cancelled
-
-Rides: requested → accepted → arrived → started → completed
-                           ↓              ↓
-                       cancelled      cancelled
-```
-
-- [ ] All state transitions validated
-- [ ] Invalid transitions rejected
-- [ ] Events broadcast on transitions
-- [ ] Notifications sent on transitions
-
-#### E2. Pricing Calculation
-
-| Component | Backend | Frontend Display |
-|-----------|---------|------------------|
-| Subtotal | Σ (product.price × qty) | ✓ Should match |
-| Discount | promo_code.discount | ✓ Should match |
-| Delivery Fee | get_cache('mart_delivery_fee') | ✓ MISSING in P0.2 |
-| Tax | config.mart_tax_percent | ✓ Check |
-| Tip | customer input | ✓ Should match |
-| **Total** | **Computed server-side** | **Display with all components** |
-
-#### E3. Authentication Flow
-
-```
-Customer App:
-1. Validate QR Token (optional) → POST /api/auth/qr-token/validate
-2. Register → POST /api/customer/auth/registration
-3. Login → POST /api/customer/auth/pin-login
-4. Get Token → Laravel Passport (1 hour expiry)
-
-Driver App:
-1. Validate QR Token (optional) → POST /api/auth/qr-token/validate
-2. Register → POST /api/driver/auth/registration
-3. Login → POST /api/driver/auth/pin-login
-4. Get Token → Laravel Passport (7 day expiry)
-```
-
-- [ ] Token storage secure
-- [ ] Token refresh works
-- [ ] PIN change revokes other sessions
-
----
-
-### 🔍 SECTION F: DEPLOYMENT READINESS
-
-#### F1. Environment Configuration
-- [ ] `.env` not committed to repo
-- [ ] All secrets in environment variables
-- [ ] APP_DEBUG=false in production
-- [ ] Queue driver configured (Redis for production)
-- [ ] Cache driver configured
-- [ ] Session driver configured
-- [ ] Broadcast driver configured (Reverb for production)
-
-#### F2. Performance
-- [ ] Database queries optimized (indexes, eager loading)
-- [ ] API response times acceptable (<200ms p95)
-- [ ] Image optimization (compression, CDN)
-- [ ] Code splitting in Flutter
-- [ ] Lazy loading where applicable
-
-#### F3. Monitoring & Logging
-- [ ] Structured JSON logging configured
-- [ ] Request ID propagation
-- [ ] Error tracking (Sentry) integrated
-- [ ] Health check endpoint functional
-- [ ] Metrics endpoints exposed
-
-#### F4. Security Checklist
-- [ ] HTTPS enforced
-- [ ] CORS configured for known origins
-- [ ] Rate limiting on auth endpoints
-- [ ] PIN lockout after 5 failed attempts
-- [ ] Stripe webhook signature verification
-- [ ] No sensitive data in logs
-- [ ] Environment secrets not exposed in client
-
----
-
-## 2. REVIEW EXECUTION PLAN
-
-### Phase 1: Backend Deep Dive (2 hours)
-1. Run `php artisan test --filter=VitoFlowTest`
-2. Review all API controllers for security
-3. Check database migrations and models
-4. Verify business logic consistency
-5. Test payment flows with Stripe
-
-### Phase 2: Frontend Audit (2 hours)
-1. Run `flutter analyze --no-fatal-infos` on both apps
-2. Review authentication flow in both apps
-3. Check state management patterns
-4. Verify API integration layer
-5. Review real-time subscriptions
-
-### Phase 3: UX/UI Review (1 hour)
-1. Test critical user flows manually
-2. Check loading/error/empty states
-3. Verify localization completeness
-4. Test dark mode
-5. Check accessibility
-
-### Phase 4: Logic & Flow Verification (1 hour)
-1. Trace order lifecycle end-to-end
-2. Verify pricing calculation consistency
-3. Test edge cases (network failure, timeouts)
-4. Check state transitions
-
----
-
-## 3. CRITICAL ISSUES FOUND
-
-| Issue | Severity | Component | Status |
-|-------|----------|-----------|--------|
-| Delivery fee not shown in checkout | 🔴 HIGH | Frontend (P0.2) | ▸ Planned |
-| Booking confirmation sheet missing | 🟠 MEDIUM | Frontend | ▸ Needs fix |
-| Parcel weight input missing | 🟠 MEDIUM | Frontend | ▸ Needs fix |
-| Driver GPS enforcement | 🟠 MEDIUM | Frontend | ▸ Needs fix |
-| Home screen loading states | 🟡 LOW | Frontend | ▸ Polish |
-
----
-
-## 4. RECOMMENDATIONS
-
-### Immediate (Before Launch)
-1. Fix P0.2: Show delivery fee in checkout
-2. Add booking confirmation sheet
-3. Add parcel weight input
-4. Enforce driver GPS before going online
-5. Add loading states to home screen
-
-### Short-term (Post-Launch)
-1. Implement real-time order updates (Pusher)
-2. Add chat typing indicators
-3. Driver arrived notification
-4. Language picker in settings
-5. Error states with retry options
-
-### Medium-term (Feature Parity)
-1. Emergency SOS button
-2. Trip sharing
-3. Scheduled bookings
-4. Driver earnings dashboard
-5. Referral program clarity
-
----
-
-*Review Date: 2026-07-03*
-*Estimated Review Time: 6 hours*
-*Target System: Production-ready Vito platform*
 
 ## 1. OBJECTIVE
 
-Implement **P0.2: Show the delivery fee (and real total) in checkout**.
-
-The backend already charges a `mart_delivery_fee` (stored in `mart_orders.delivery_fee`, computed from the `mart_delivery_fee` business config via `get_cache()`) but the user app checkout screen shows `subtotal − discount + tip` with no delivery fee line. The displayed total understates the real charge — a trust/chargeback risk.
+Transform Vito from ~75% production-ready to 100% Gojek-grade production-ready by closing all known gaps across:
+- **Backend:** Security hardening, secrets hygiene, secrets rotation, queue reliability, API completeness
+- **User App:** Critical crashes, missing screens, broken flows, UX parity
+- **Driver App:** Same as user app + driver-specific reliability
+- **UX/UI:** Loading states, error states, empty states, consistency, localization parity
+- **Operations:** CI reinforcement, test coverage, monitoring, deployment automation
 
 ---
 
 ## 2. CONTEXT SUMMARY
 
-**Backend:**
-- `VitoMartController::createOrder` (line 278): `$deliveryFee = max(0.0, (float) get_cache('mart_delivery_fee'));`
-- The fee is stored in `mart_orders.delivery_fee` (migration `2026_06_29_000001_add_fee_tax_to_mart_orders` already applied)
-- `ConfigController::configuration()` returns business config to the user app but does NOT include `mart_delivery_fee`
+The system is a three-part ride-hailing + delivery platform:
 
-**User app:**
-- `mart_store_screen.dart`: cart screen with `_buildOrderSummary()` (line 914+) showing price breakdown
-- Current breakdown: subtotal, discount (if any), tip (if any), then total
-- `_totalAmount` (line 583): `subtotal − discount + tip` — no delivery fee
-- Translation files `en.json` and `es.json` exist; key `delivery_fee` already present in both
+| Component | Tech | Files |
+|-----------|------|-------|
+| Backend | Laravel 12, Passport, Stripe, Pusher/Reverb | 1,489 PHP files |
+| User App | Flutter + GetX + Firebase + Pusher | 429 Dart files |
+| Driver App | Flutter + GetX + Firebase + Pusher | 409 Dart files |
 
-**Key constraint:** Keep server authoritative — the client **displays** the fee, it never sends totals to the backend.
+**Prior work (already done, verified):**
+- Server-side fare computation
+- PIN-based auth with atomic token revocation
+- Mart promo atomic counters + `lockForUpdate`
+- Stripe idempotent webhook + `stripe_event_id` dedup
+- `MartOrder::STATUS_TRANSITIONS` shared state machine
+- Driver MartDeliveryController wiring (network layer)
+- 30+ user-app and 30+ driver-app audit items already fixed (v2.1.0, v2.2.0, Wave 5-13)
+- CI pipeline (PHPStan + VitoFlowTest + Flutter analyze/build)
+- Self-service forgot-PIN (backend + both apps)
+- Driver arrived-at-pickup sub-signal
+- Delivery fee + tax in mart orders
+
+**Known open issues (from audits):** ~40 items across all severity levels, grouped below by track.
 
 ---
 
 ## 3. APPROACH OVERVIEW
 
-1. **Backend:** Add `mart_delivery_fee` to `ConfigController::configuration()` response so the user app can read it.
-2. **User app:** 
-   - Fetch the delivery fee from config (or pass it from the existing config service)
-   - Add `delivery_fee` state variable and a "Delivery fee" line to `_buildOrderSummary`
-   - Include delivery fee in `_totalAmount` calculation
-3. **Verification:** `flutter analyze` + `flutter test` pass in user app; backend PHPStan + `VitoFlowTest` pass via CI.
+**4 parallel tracks** — each item traced to specific files, fixed, tested, and documented.
+
+| Track | Owner | Scope |
+|-------|-------|-------|
+| **A — Backend** | Backend Dev | Security, reliability, API completeness |
+| **B — User App** | Flutter Dev | Crashes, flows, UX, localization |
+| **C — Driver App** | Flutter Dev | Reliability, UX, localization |
+| **D — DevOps/CI** | DevOps | CI reinforcement, monitoring, docs |
+
+Every fix follows: **identify → fix → test → verify → update audit tracker**.
 
 ---
 
 ## 4. IMPLEMENTATION STEPS
 
-### Step 1: Add `mart_delivery_fee` to ConfigController (Backend)
-**Goal:** Expose the delivery fee config value to the user app via the existing `/api/v1/config` endpoint.
+---
 
-**Method:**
-- Edit `Modules/BusinessManagement/Http/Controllers/Api/Customer/ConfigController.php`
-- Add `'mart_delivery_fee' => (float) get_cache('mart_delivery_fee')` to the `$configs` array returned by `configuration()`
-- Run `php -l` to verify syntax
+### TRACK A — Backend
 
-**Reference:** `ConfigController.php:97-130` (configs array)
+#### A.1 Critical Security (Pre-Launch, Non-Negotiable)
+
+**A.1.1 — Swish Merchant Private Key Rotation**
+- **What:** Live Swish private key committed in `certificates/live/MySwishKey.key` — git history exposed
+- **Files:** `drivemond-admin-new-install-3.1/certificates/live/`, `.gitignore`
+- **Fix:** Revoke and reissue the Swish certificate/key with the provider; move the new key to a secret store / env-mounted path; reference via `config('services.swish.private_key_path')` or env; purge old blob from git history: `git filter-repo --path certificates/live/ --invert-paths`; add `certificates/live/*.key`, `*.pem`, `*.csr` to `.gitignore`
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §C1
+
+**A.1.2 — Broadcast Secrets Generation**
+- **What:** `.env.example` has guessable secrets: `REVERB_APP_KEY=vito`, `PUSHER_APP_KEY=vito`
+- **Files:** `drivemond-admin-new-install-3.1/.env.example`
+- **Fix:** Set broadcast secrets to empty placeholders with fail-loud comments; document `openssl rand -base64 32` for prod generation
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §H2
+
+**A.1.3 — CORS Restriction**
+- **What:** `config/cors.php` allows `allowed_origins=['*']`
+- **Files:** `drivemond-admin-new-install-3.1/config/cors.php`
+- **Fix:** Read `allowed_origins` from `CORS_ALLOWED_ORIGINS` env; drop `*` wildcard; narrow methods/headers
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §H3
+
+#### A.2 High Priority Security & Auth
+
+**A.2.1 — Scope Enforcement Sweep**
+- **What:** Passport tokens with `AccessToDriver` scope can call customer-only routes
+- **Files:** All `Modules/*/Routes/api.php`, `Modules/*/Routes/vito_api.php`
+- **Fix:** Audit every route; verify `scope:AccessToCustomer|AccessToDriver` middleware present; add missing scope on parcel cancel, refund request, mart order list; add integration tests: driver token → 403 on customer endpoints and vice versa
+- **Reference:** `AUDIT.md` §1.2, `AUDIT_TRACKER.md` A5
+
+**A.2.2 — Token Revocation Endpoint Verification**
+- **What:** No logout endpoint to revoke tokens; stolen tokens remain valid
+- **Files:** `Modules/AuthManagement/Http/Controllers/Api/VitoAuthController.php`
+- **Fix:** Verify `logout()` calls `$token->revoke()` and `refresh()`; wire both apps to call logout on sign-out; add test: token works before revoke, 401 after
+- **Reference:** `AUDIT.md` §1.2
+
+**A.2.3 — PIN Recovery (needs product decision)**
+- **What:** No self-service PIN recovery for PIN-only users (no phone on file)
+- **Fix (deferred):** Option A: admin-assisted reset. Option B: optional phone at PIN registration → OTP self-reset. Choose one
+- **Reference:** `AUTH_AUDIT.md` §Open items
+
+#### A.3 Backend Reliability & Operations
+
+**A.3.1 — Queue Worker Configuration**
+- **What:** `.env.example` ships `QUEUE_CONNECTION=database`; `RideTimeoutJob` silently dropped
+- **Fix:** Change default to `QUEUE_CONNECTION=redis`; add `REDIS_URL`; commit `supervisor.conf`; add deploy checklist item
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §M1
+
+**A.3.2 — Cache/Session Redis Defaults**
+- **What:** `.env.example` has `CACHE_DRIVER=file`, `SESSION_DRIVER=file`
+- **Fix:** Default `CACHE_DRIVER=redis`, `SESSION_DRIVER=redis` with comment for multi-instance
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §M6
+
+**A.3.3 — PHPStan Level Upgrade**
+- **What:** PHPStan runs at level 0 only
+- **Fix:** Bump to level 1; fix ~30-40 new errors; gradually move to level 2-3; add level 1 gate to CI
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §M4
+
+**A.3.4 — VitoFlowTest Expansion**
+- **What:** Tests cover happy paths; edge cases uncovered
+- **Fix:** Add tests for: promo code race condition, token scope enforcement, idempotency key replay, mart order total recomputation, 429 rate-limit. Split monolithic file into `AuthTest.php`, `MartTest.php`, etc.
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §M4
+
+#### A.4 Backend Feature Completeness
+
+**A.4.1 — Arrived at Pickup Sub-Signal (verify)**
+- **What:** No "driver arrived" intermediate state
+- **Fix (already partly done):** Confirm `arrived` status in trip state machine; verify `driver_arrived` Pusher event; verify customer shows banner; add test
+- **Reference:** `AUDIT.md` §1.3
+
+**A.4.2 — Zone Validation at Parcel Booking**
+- **What:** Sender/receiver addresses accepted without zone validation
+- **Fix:** Add zone validation in `createParcelRequest()`; return 422 with zone mismatch; add test
+- **Reference:** `AUDIT.md` §1.4
+
+**A.4.3 — Driver Cancellation for Mart Orders**
+- **What:** No driver endpoint to cancel a mart order after acceptance
+- **Fix:** Add `cancelOrder(orderId)` method; enforce `MartOrder::STATUS_TRANSITIONS`; trigger refund if payment made; add route + test
+- **Reference:** `AUDIT.md` §1.5
+
+**A.4.4 — Parcel Dimension Validation**
+- **What:** Weight validated but dimensions (L×W×H) not — zero dimensions accepted
+- **Fix:** Add validation: `dimension_length > 0`, `dimension_width > 0`, `dimension_height > 0`; add unit tests
+- **Reference:** `AUDIT.md` §1.4
+
+**A.4.5 — Generic Login Error Message**
+- **What:** Wrong PIN → `"Incorrect PIN"`; unknown username → `"User not found"` — username enumeration
+- **Fix:** Replace both with single generic: `"Invalid username or PIN"`; keep 401 for both; add test
+- **Reference:** `AUDIT.md` §1.2
+
+**A.4.6 — Real-Time Driver Location Before Acceptance**
+- **What:** Customers cannot see driver's live location pre-acceptance
+- **Fix:** After driver accepts, broadcast `driver_location` event; add polling fallback; add test
+- **Reference:** `AUDIT.md` §1.3
 
 ---
 
-### Step 2: Fetch delivery fee in user app
-**Goal:** Retrieve the `mart_delivery_fee` value from the config endpoint and store it in the `MartController`.
+### TRACK B — User App
 
-**Method:**
-- Check if the config endpoint response is already parsed and stored (likely via `ProfileController` or a config service)
-- Add a `double deliveryFee = 0.0` field to `MartController` (or a dedicated config/repository)
-- Load the value from the config response when the controller initializes
+#### B.1 Critical Crashes
 
-**Reference:** `lib/features/mart/controllers/mart_controller.dart`
+**B.1.1 — Mart Status Test Wrong Values**
+- **What:** Test hardcodes wrong statuses: `['placed', 'confirmed', 'preparing', 'ready', 'dispatched', 'delivered']`
+- **Files:** `drivemond-user-app-3.1/.../test/vito_flows_test.dart:144–155`
+- **Fix:** Replace with `['pending', 'accepted', 'picked_up', 'delivered']`; add transition-rule assertions; run tests
+- **Reference:** `USER_APP_AUDIT.md` §C1
+
+**B.1.2 — Mart Checkout Client-Side Total (verify fix)**
+- **Fix (already fixed):** Verify `MartPaymentScreen` uses `result.serverTotal`; verify checkout calls promo endpoint before showing total
+- **Reference:** `USER_APP_AUDIT.md` §C6
+
+**B.1.3 — Mart Message Screen Uses Ride Status**
+- **What:** `findChannelRideStatus()` checks trip status — wrong for mart chat
+- **Files:** `drivemond-user-app-3.1/.../lib/features/mart/screens/mart_message_screen.dart:57`
+- **Fix:** Add `MessageController.findChannelMartOrderStatus(orderId)`; call it with `orderId`; disable input when `delivered` or `cancelled`
+- **Reference:** `USER_APP_AUDIT.md` §H1
+
+**B.1.4 — Pusher Crash on Null Client (verify fix)**
+- **Fix (already fixed):** Verify every `pusherClient!` access has null guard; log warning + return gracefully
+- **Reference:** `USER_APP_AUDIT.md` §H4
+
+#### B.2 High Priority UX
+
+**B.2.1 — Cart State Local-Only**
+- **What:** Cart in SharedPreferences — backend has no record
+- **Fix:** On checkout, re-fetch product details for each cart item; validate price/stock against server before `createOrder()`; show inline error if any item changed
+- **Reference:** `USER_APP_AUDIT.md` §H2
+
+**B.2.2–B.2.5 — Verified Fixed Items**
+- B.2.2 Wallet balance check before checkout (already fixed H3)
+- B.2.3 FCM token rotation propagated (already fixed H5)
+- B.2.4 Time picker locale applied (U21)
+- B.2.5 Scheduled trip past timestamp validation (U22)
+
+#### B.3 Medium UX Polish
+
+**B.3.1–B.3.5 — Verified Fixed Items**
+- B.3.1 Destination input validation (already fixed U17)
+- B.3.2 Refund upload size validation (already fixed U18)
+- B.3.3 Safety alert types re-fetch (already fixed H17)
+- B.3.4 OTP lock message localized (already fixed U20)
+- B.3.5 Chat file name truncation crash (already fixed U23)
+
+**B.3.6 — Missing EN/ES Localization Keys**
+- **What:** 17 missing i18n keys render as raw strings in ES
+- **Fix:** Run `flutter test test/vito_flows_test.dart` to find failures; add all missing keys; add AR parity test
+- **Reference:** `AUDIT.md` §2.1, `PRODUCTION_READINESS_AUDIT.md` §M5
+
+**B.3.7 — Hardcoded English in Mart Screens**
+- **Fix:** Search all mart screens for hardcoded strings; replace with translation keys; update `en.json` and `es.json`
+- **Reference:** `AUDIT.md` §2.1
+
+#### B.4 Mart Feature Completion
+
+**B.4.1 — Sort Controls & Popular/Featured Shelves**
+- **Fix:** Add sort dropdown (price asc/desc/popularity); add "Popular" and "Featured" horizontal shelves
+- **Reference:** `AUDIT_TRACKER.md` §G4
+
+**B.4.2 — Map-Based Delivery Address Picker**
+- **Fix:** Reuse ride location/map widgets; replace address text field with map-based picker
+- **Reference:** `AUDIT_TRACKER.md` §G5
+
+**B.4.3 — Mart Order Tracking → Controller Migration (deferred)**
+- **Fix:** Extract `Timer.periodic` poll loop to `MartController`; screen becomes `GetBuilder<MartController>`; needs device verification
+- **Reference:** `AUDIT_TRACKER.md` §W4
 
 ---
 
-### Step 3: Display delivery fee in cart summary (User App)
-**Goal:** Show the delivery fee in the checkout price breakdown and include it in the total.
+### TRACK C — Driver App
 
-**Method:**
-- Edit `mart_store_screen.dart`
-- Add `double _deliveryFee = 0.0` state variable (fetched from config/repository)
-- In `_buildOrderSummary()`, add a line: `_buildPriceLine('delivery_fee'.tr, _deliveryFee)` between discount and the Divider
-- Update `_totalAmount` to: `subtotal − discount + tip + deliveryFee`
-- Import translation keys: `delivery_fee` already exists in `en.json` and `es.json` ✓
+#### C.1 Critical Crashes (all verified fixed)
+- **C.1.1** MartDeliveryScreen Architecture D1 (Fixed Wave 8)
+- **C.1.2** OTP Auth Driver Bypass D2 (Resolved Wave 7)
+- **C.1.3** Chat File Name Truncation D31, D32 (Fixed Wave 13)
 
-**Reference:** 
-- `mart_store_screen.dart:583` (`_totalAmount`)
-- `mart_store_screen.dart:997-1015` (price breakdown section)
+#### C.2 High Priority Reliability (all verified fixed)
+- **C.2.1** Delivery Proof Lost D3 (Fixed Wave 5)
+- **C.2.2** Silent Location Failure D4 (Fixed Wave 5)
+- **C.2.3** Pusher Channels Not Unsubscribed D5 (Fixed v2.1.0)
+- **C.2.4** ProfileController Not Cleared on Logout D7 (Fixed v2.1.0)
+- **C.2.5** Background FCM Messages Dropped D8 (Fixed v2.1.0)
+- **C.2.6** Double Accept Guard D9 (Fixed v2.1.0)
+- **C.2.7** Online/Offline Toggle Not Persisted D10 (Fixed v2.1.0)
+- **C.2.8** Identity Photo File Size Validation D6 (Fixed v2.2.0)
 
----
+#### C.3 Medium UX Polish (all verified fixed)
+- **C.3.1** Status Update Button Disabled D13, D25 (Fixed v2.2.0)
+- **C.3.2** Trip Filter Tab Restore D17 (Fixed v2.1.0)
+- **C.3.3** Signature Stroke Threshold D23 (Fixed Wave 6)
+- **C.3.4** Pusher Reconnection on Resume D27 (Fixed v2.1.0)
+- **C.3.5** Tooltip Controllers Hidden Before Dispose D24 (Fixed v2.1.0)
+- **C.3.6** Pusher Status Guard D29 (Fixed Wave 6)
+- **C.3.7** Idempotency Key on Status Update D30 (Fixed Wave 5)
+- **C.3.8** Wallet Tab Refresh on Switch D13 (Fixed v2.2.0)
 
-### Step 4: Verification
-**Method:**
-- User app: `cd drivemond-user-app-3.1/HexaRide-User-app-release-3.1 && flutter analyze --no-fatal-infos` (0 errors)
-- User app tests: `flutter test test/vito_flows_test.dart` (all pass)
-- Backend: `php -l` on modified controller
-- Revert `pubspec.lock` if dirty
-
----
-
-## 5. TESTING AND VALIDATION
-
-**Success criteria:**
-1. Cart screen shows "Delivery fee" line with the configured fee value (e.g., `$2.99`)
-2. Total at bottom = subtotal − discount + tip + delivery fee
-3. Backend config endpoint returns `mart_delivery_fee` in response
-4. `flutter analyze` passes with 0 errors
-5. All `vito_flows_test.dart` tests pass
-
-**Edge cases:**
-- If `mart_delivery_fee` is 0 or not configured, display `$0.00` (or hide the line if preferred)
-- Ensure `_totalAmount` calculation handles null/missing values gracefully
+**C.3.9 — Missing EN/ES Localization Keys**
+- **Fix:** Run `flutter test test/vito_flows_test.dart` to find failures; add all missing keys
+- **Reference:** `DRIVER_APP_AUDIT.md` §D26
 
 ---
 
-## 6. BACKEND END-TO-END TESTING PLAN
+### TRACK D — DevOps & CI/CD
 
-### Test Suite: VitoFlowTest
+#### D.1 CI Reinforcement
 
-The backend uses `VitoFlowTest.php` which tests the complete user journey using SQLite in-memory (no external DB needed).
+**D.1.1 — Flutter Analyze Warnings Cleanup**
+- **What:** User app: 34 issues (2 warnings on Pusher)
+- **Fix:** Resolve warnings in both apps' `pusher_helper.dart`; get to 0 warnings, 0 errors; add `--fatal-warnings` to CI
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §Evidence
 
-**Run command:**
-```bash
-cd drivemond-admin-new-install-3.1 && php artisan test --filter=VitoFlowTest
-```
+**D.1.2 — AR Localization Parity Test**
+- **What:** Only EN↔ES checked — AR never asserted
+- **Fix:** Extend to three-way (EN, ES, AR); note Arabic removed per `AUDIT_TRACKER.md` U2 — verify status; update test
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §M5
 
-### Test Coverage
+**D.1.3 — Firebase Config Hardcoding H5**
+- **What:** Firebase keys hardcoded — not swappable per build/tenant
+- **Fix:** Load from `google-services.json` / `firebase_options.dart` (FlutterFire); use dart-define for API key
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §H5
 
-The `VitoFlowTest` covers these flows:
+**D.1.4 — iOS Build Issues C1-C4 (verify fixes)**
+- **Fix:** Verify SPM disabled; iOS deployment target ≥ 16.0; macOS runner ≥ macos-15; `mobile_scanner ^7.0.0`
+- **Reference:** `AUDIT_TRACKER.md` C1-C4
 
-| Flow | Description |
-|------|-------------|
-| QR Token | Validate invite tokens for customer/driver registration |
-| User Registration | Register new users with PIN |
-| PIN Login | Authenticate with username + 6-digit PIN |
-| Ride Booking | Create ride requests with fare calculation |
-| Parcel Booking | Create parcel delivery orders |
-| Mart Orders | Full mart order lifecycle |
-| Mart Promo Codes | Apply and validate promo codes |
-| Driver Acceptance | Driver accepts and processes orders |
-| Delivery Proof | Upload delivery confirmation |
-| Stripe Payment | Process payments via Stripe |
-| Wallet Operations | Balance checks and transactions |
+**D.1.5 — Git Dependency Supply Chain Risk M7**
+- **What:** Driver app pulls `open_file_plus` from personal git fork at `ref: main`
+- **Fix:** Check if pub.dev version now covers need; if not, vendor/pin to immutable commit; remove git dependency
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §M7
 
-### Expected Test Results
+#### D.2 Monitoring & Observability
 
-All tests should pass:
-```
-✓ QR token validation works
-✓ Customer registration and login
-✓ Driver registration and login  
-✓ Ride creation and status updates
-✓ Parcel creation and tracking
-✓ Mart order creation with items
-✓ Mart promo code application
-✓ Stripe payment processing
-✓ Wallet balance operations
-```
+**D.2.1 — Sentry Sample Rate L3**
+- **What:** `SENTRY_SAMPLE_RATE` defaults to 1.0
+- **Fix:** Default `SENTRY_SAMPLE_RATE=0.1` in `.env.example`; document for prod
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §L3
 
-### Static Analysis (PHPStan)
+**D.2.2 — Silent Empty Catch Blocks L1**
+- **What:** Silent `catch {}` in Pusher/auth paths
+- **Fix:** Add `Log.warning(...)` or `debugPrint(...)` inside every empty catch with error context
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §L1
 
-Run PHPStan on key controllers:
-```bash
-./vendor/bin/phpstan analyse --level=0 \
-  Modules/AuthManagement/Http/Controllers/Api/VitoAuthController.php \
-  Modules/AuthManagement/Http/Controllers/Api/QrTokenController.php \
-  Modules/TripManagement/Http/Controllers/Api/Customer/VitoMartController.php \
-  Modules/TripManagement/Http/Controllers/Api/Driver/VitoTripController.php \
-  Modules/Gateways/Http/Controllers/Api/VitoStripeController.php
-```
+#### D.3 Documentation & Runbooks
 
-### Manual API Testing (via curl)
+**D.3.1 — Legacy Auth Admin Menus L4**
+- **What:** Redundant legacy-auth admin menus still exposed
+- **Fix:** Hide/disable Firebase-OTP config, OTP-login-attempts, phone/password settings; keep data model but remove from UI
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §L4
 
-After code changes, verify these endpoints:
-
-**1. Config endpoint (for delivery fee):**
-```bash
-curl -X GET http://localhost:8000/api/v1/config \
-  -H "Accept: application/json"
-# Should include: "mart_delivery_fee": 2.99
-```
-
-**2. Health check:**
-```bash
-curl -X GET http://localhost:8000/api/health \
-  -H "Accept: application/json"
-```
-
-**3. Mart categories (requires auth):**
-```bash
-curl -X GET http://localhost:8000/api/customer/mart/categories \
-  -H "Authorization: Bearer {token}" \
-  -H "Accept: application/json"
-```
-
-### Test Execution Steps
-
-1. **Run VitoFlowTest:**
-   ```bash
-   cd drivemond-admin-new-install-3.1
-   php artisan test --filter=VitoFlowTest
-   ```
-
-2. **Verify all tests pass** (look for green checkmarks)
-
-3. **Run PHPStan** if adding new controllers:
-   ```bash
-   ./vendor/bin/phpstan analyse --level=0 {new_controller_path}
-   ```
-
-4. **Manual smoke test** the modified endpoints with curl or Postman
+**D.3.2 — Dead Code Cleanup L2**
+- **What:** ~54-65 `// TODO` stubs + disabled polyline TODO
+- **Fix:** `grep -r "// TODO" lib/` → categorize: implement, remove, or file; remove empty repository stubs; fix `finding_rider_widget.dart:34`
+- **Reference:** `PRODUCTION_READINESS_AUDIT.md` §L2
 
 ```dart
 Future<Response> submitRideRequest(String note, bool parcel, {String categoryId = ''}) async {
