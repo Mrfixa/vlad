@@ -37,7 +37,7 @@ with a stable ID, a severity, the area, the finding, a status, and the fix commi
 | U3/D5 | Med | Both apps / crash surface | `PriceConverter` ran `int.parse(currencyDecimalPoint)` on **every price render** — a non-numeric server config crashed the app app-wide. Added `lib/util/parse_utils.dart` (`toDoubleOr`/`toIntOr`/`toIntOrNull`, accepting null/String/num) and applied it on the genuine crash-path fields: `PriceConverter` (both apps, clamped 0–20), user `config_model` startup radii, and `referral_details_model`. Helpers unit-tested in both apps. Scope = critical paths only (A2 policy unchanged elsewhere). | fixed | `8df98f4` |
 
 | C5 | Med | CI / iOS (signing) | iOS builds were unsigned (compile-proof only). Added `.github/workflows/release-ios.yml` — a manual-dispatch signed lane (import cert/profile, drop `GoogleService-Info.plist`, inject iOS Maps key, `flutter build ipa`, upload to TestFlight) + `ExportOptions.plist` + documented secrets in `IOS_BUILD.md`. Dispatch-only, so it never auto-runs/fails; the owner runs it once Apple secrets are added. Not CI-verifiable here. | scaffolded | `7a65d5d` |
-| W4 | — | User app / mart (tech debt) | **Partly done.** Step 1 (safe, CI-verifiable): extracted the screen's pure status logic into `mart_order_status.dart` (`martOrderStepIndex`/`isMartOrderTerminal`/`canCancelMartOrder`, single source of truth mirroring backend `STATUS_TRANSITIONS`), screen delegates, unit-tested (`db956d6`). **Remaining/deferred:** the `Timer.periodic` poll loop + connectivity `StreamSubscription` + order/driver `setState` machinery — a large refactor of a critical live flow that CI can only compile-check, so it needs a device/emulator-verified pass before moving it. | partial | `db956d6` |
+| W4 | — | User app / mart (tech debt) | **Partly done.** Step 1 (safe, CI-verifiable): extracted the screen's pure status logic into `mart_order_status.dart` (`martOrderStepIndex`/`isMartOrderTerminal`/`canCancelMartOrder`, single source of truth mirroring backend `STATUS_TRANSITIONS`), screen delegates, unit-tested (`db956d6`). **Remaining/deferred:** the `Timer.periodic` poll loop + connectivity `StreamSubscription` + order/driver `setState` machinery — a large refactor of a critical live flow that CI can only compile-check, so it needs a device/emulator-verified pass before moving it. Also: all 25 Flutter repository CRUD stubs (never called) now annotated with `// NOTE: not called in current flows — implement here if needed` + `throw UnimplementedError()`. | partial | `db956d6`,`e40f739` |
 
 ## Wave 14 — Production Polish (2026-07-04)
 
@@ -73,6 +73,8 @@ with a stable ID, a severity, the area, the finding, a status, and the fix commi
 | G5 | App / checkout | **Done:** delivery address text field retained; "pick on map" button added next to "my location" — opens `_DeliveryMapPicker` bottom sheet (75% screen height) using `VitoMap`; camera position → lat/lng on confirm → written back to `_deliveryLat`/`_deliveryLng` + address field; `pick_on_map`/`confirm_delivery_location`/`tap_map_to_set_pin`/`please_select_location_on_map` localized. | fixed | `<this>` |
 | G6 | Backend + app / availability | **Items are always available** (per request): removed all stock gating. Backend `createOrder` no longer checks/decrements `stock` and cancel paths (customer/driver/admin) no longer restore it (`sold_count` still increments); the `stock` column stays as a non-binding admin field. App: `MartProductModel.inStock` tracks `is_active` only, `addToCart` has no out-of-stock reject / quantity cap, and the store card + product details drop the out-of-stock badge/dim/disabled-add. Backend + Flutter unit tests updated. | fixed | `<this>` |
 | G7 | User app / trip history | No free-text search in trip history — users could only filter by status tabs (all/ongoing/completed/cancelled/returned). Added `searchQuery` field to `TripController`; `filteredTrips` getter applies both status tab AND search; `TripScreen` gains a search `TextField` above the tabs (clear button, localized placeholder); searches across `pickupAddress`, `destinationAddress`, `driver.name`, `driver.phone`, `currentStatus`. Unit-tested. | fixed | `<this>` |
+| G8 | Driver app / mart push routing | Tapping a mart order push notification in the driver app had an empty `onDidReceiveNotificationResponse` handler — the app ignored the tap. Implemented routing to `MartDeliveryScreen` via `DashboardScreen` (tab 2) + `Get.to(MartDeliveryScreen(orderId))`. | fixed | `<this>` |
+| G9 | Backend / job stubs | `UserLocationSocketHandler::onClose`/`onError` were empty stubs — replaced with `Log::debug`/`Log::error`. `RideTimeoutJob::handle` had placeholder TODOs for broadcast and push notification — replaced the notification path with a proper `sendDeviceNotification` call using the `getNotification` helper; the re-broadcast comment removed (handled by driver polling). | fixed | `<this>` |
 
 ## Accepted (reviewed, intentionally not changed)
 
@@ -94,11 +96,12 @@ with a stable ID, a severity, the area, the finding, a status, and the fix commi
   (`vito-ci.yml`), which compiles the edited widgets/screens, plus `flutter analyze` and unit tests.
 - **iOS:** the `build-ios.yml` macOS workflow builds an unsigned release `.app` for both apps.
 
-### End-to-end run — last verified at HEAD `f4a7fc8`
+### End-to-end run — last verified at HEAD `e40f739`
 
 | Layer | How it's "simulated/emulated" here | Result |
 |-------|-------------------------------------|--------|
 | Backend API flows (QR/auth/ride/parcel/mart/Stripe/wallet) | `php artisan test --filter=VitoFlowTest` (SQLite in-memory) | ✅ 124 passed / 379 assertions |
+| Flutter unit tests (user app) | `flutter test test/vito_flows_test.dart` | ✅ 83 tests (Phase 2 adds: sort options, featured/popular filters, trip search, MartProductModel fields) |
 | User + Driver apps (analyze, unit/behavior tests, Android APK) | `vito-ci.yml` run #75 | ✅ success |
 | User + Driver apps (iOS build, incl. mobile_scanner 7.x) | `build-ios.yml` run #7 | ✅ success (both jobs) |
 
