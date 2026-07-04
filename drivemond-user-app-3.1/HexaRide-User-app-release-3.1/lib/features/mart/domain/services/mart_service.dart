@@ -6,8 +6,8 @@ class MartService implements MartServiceInterface {
   MartService({required this.martRepositoryInterface});
 
   @override
-  Future getProducts({String? category, String? search, int limit = 50}) async =>
-      await martRepositoryInterface.getProducts(category: category, search: search, limit: limit);
+  Future getProducts({String? category, String? search, String? sort, int limit = 50}) async =>
+      await martRepositoryInterface.getProducts(category: category, search: search, sort: sort, limit: limit);
 
   @override
   Future getCategories() async => await martRepositoryInterface.getCategories();

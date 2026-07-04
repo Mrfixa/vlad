@@ -8,13 +8,16 @@ class MartRepository implements MartRepositoryInterface {
   MartRepository({required this.apiClient});
 
   @override
-  Future<Response> getProducts({String? category, String? search, int limit = 50}) async {
+  Future<Response> getProducts({String? category, String? search, String? sort, int limit = 50}) async {
     final params = <String, String>{'limit': '$limit'};
     if (category != null && category.isNotEmpty && category != 'all') {
       params['category'] = category;
     }
     if (search != null && search.isNotEmpty) {
       params['search'] = search;
+    }
+    if (sort != null && sort.isNotEmpty) {
+      params['sort'] = sort;
     }
     final query = params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
     return await apiClient.getData('${AppConstants.martProducts}?$query');

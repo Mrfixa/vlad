@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gmap;
 import 'package:shimmer/shimmer.dart';
+import 'package:ride_sharing_user_app/common_widgets/vito_map.dart';
 import 'package:ride_sharing_user_app/data/api_client.dart';
 import 'package:ride_sharing_user_app/util/app_constants.dart';
 import 'package:ride_sharing_user_app/util/dimensions.dart';
@@ -33,9 +35,11 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
   bool _isOffline = false;
   Timer? _searchDebounce;
   String _selectedCategory = 'all';
-  Future<void> Function() _loadProducts = () async {};
-
   MartController get _martController => Get.find<MartController>();
+
+  Future<void> _loadProducts() async {
+    await _martController.getProducts();
+  }
 
   @override
   void initState() {
@@ -170,36 +174,82 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
   }
 
   Widget _buildCategoryFilter(BuildContext context) {
-    return GetBuilder<MartController>(
-      builder: (controller) {
-        final categories = controller.categoryList;
-        return SizedBox(
-          height: 40,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeDefault),
-            itemCount: categories.length,
-            itemBuilder: (context, index) {
-              final category = categories[index];
-              final isSelected = category == _selectedCategory;
-              return Padding(
-                padding: const EdgeInsets.only(right: Dimensions.paddingSizeSmall),
-                child: FilterChip(
-                  label: Text(category.tr),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _selectedCategory = category);
-                    controller.setCategory(category);
-                  },
-                  selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
-                  checkmarkColor: Theme.of(context).primaryColor,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GetBuilder<MartController>(
+          builder: (controller) {
+            final categories = controller.categoryList;
+            return SizedBox(
+              height: 40,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeDefault),
+                itemCount: categories.length,
+                itemBuilder: (context, index) {
+                  final category = categories[index];
+                  final isSelected = category == _selectedCategory;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: Dimensions.paddingSizeSmall),
+                    child: FilterChip(
+                      label: Text(category.tr),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        HapticFeedback.selectionClick();
+                        setState(() => _selectedCategory = category);
+                        controller.setCategory(category);
+                      },
+                      selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                      checkmarkColor: Theme.of(context).primaryColor,
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+        // Sort chips row — sorts are passed to the backend.
+        GetBuilder<MartController>(
+          builder: (controller) {
+            const sorts = [
+              ('default', 'sort_default'),
+              ('price_low', 'sort_price_low'),
+              ('price_high', 'sort_price_high'),
+              ('popular', 'sort_popular'),
+            ];
+            return SizedBox(
+              height: 40,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(
+                  Dimensions.paddingSizeDefault,
+                  Dimensions.paddingSizeExtraSmall,
+                  Dimensions.paddingSizeDefault,
+                  0,
                 ),
-              );
-            },
-          ),
-        );
-      },
+                itemCount: sorts.length,
+                itemBuilder: (context, index) {
+                  final (value, label) = sorts[index];
+                  final isSelected = controller.selectedSort == value;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: Dimensions.paddingSizeSmall),
+                    child: FilterChip(
+                      label: Text(label.tr),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        HapticFeedback.selectionClick();
+                        controller.setSort(value);
+                      },
+                      selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                      checkmarkColor: Theme.of(context).primaryColor,
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -208,10 +258,10 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
     return GetBuilder<MartController>(
       builder: (controller) {
         final query = _searchController.text.trim().toLowerCase();
-        
+
         // Convert products from model to map for filtering
         var filtered = controller.products.map((p) => p.toJson()).toList();
-        
+
         if (_selectedCategory != 'all') {
           filtered = filtered.where((p) => p['category'] == _selectedCategory).toList();
         }
@@ -222,7 +272,7 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
               .toList();
         }
 
-        final stateKey = '${_selectedCategory}_$query';
+        final stateKey = '${_selectedCategory}_${controller.selectedSort}_$query';
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
@@ -233,6 +283,102 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
                   : _buildProductGrid(context, filtered, key: ValueKey('grid_$stateKey')),
         );
       },
+    );
+  }
+
+  // Featured/Popular horizontal shelves — shown when no search is active and "all" category.
+  Widget _buildFeaturedPopularShelves(BuildContext context) {
+    return GetBuilder<MartController>(
+      builder: (controller) {
+        final allProducts = controller.products.map((p) => p.toJson()).toList();
+        final featured = allProducts.where((p) => p['is_featured'] == true || p['is_featured'] == 1).toList();
+        final popular = allProducts.where((p) => p['is_popular'] == true || p['is_popular'] == 1).toList();
+
+        if (featured.isEmpty && popular.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (featured.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Dimensions.paddingSizeDefault, Dimensions.paddingSizeSmall,
+                  Dimensions.paddingSizeDefault, Dimensions.paddingSizeExtraSmall,
+                ),
+                child: Text('featured'.tr, style: textSemiBold.copyWith(fontSize: Dimensions.fontSizeDefault)),
+              ),
+              SizedBox(
+                height: 180,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeDefault),
+                  itemCount: featured.length,
+                  itemBuilder: (context, index) => _FeaturedProductCard(
+                    product: featured[index],
+                    onAdd: _addToCart,
+                  ),
+                ),
+              ),
+            ],
+            if (popular.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  Dimensions.paddingSizeDefault, Dimensions.paddingSizeSmall,
+                  Dimensions.paddingSizeDefault, Dimensions.paddingSizeExtraSmall,
+                ),
+                child: Text('popular'.tr, style: textSemiBold.copyWith(fontSize: Dimensions.fontSizeDefault)),
+              ),
+              SizedBox(
+                height: 180,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeDefault),
+                  itemCount: popular.length,
+                  itemBuilder: (context, index) => _FeaturedProductCard(
+                    product: popular[index],
+                    onAdd: _addToCart,
+                  ),
+                ),
+              ),
+            ],
+            const Divider(height: 1),
+          ],
+        );
+      },
+    );
+  }
+
+  // Horizontal product card for featured/popular shelves.
+  Widget _buildProductGrid(BuildContext context, List<Map<String, dynamic>> filtered, {Key? key}) {
+    final showShelves = _selectedCategory == 'all' && _searchController.text.isEmpty;
+
+    return RefreshIndicator(
+      onRefresh: _loadProducts,
+      color: Theme.of(context).primaryColor,
+      child: CustomScrollView(
+        slivers: [
+          if (showShelves) SliverToBoxAdapter(child: _buildFeaturedPopularShelves(context)),
+          SliverPadding(
+            padding: const EdgeInsets.all(Dimensions.paddingSizeDefault),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: Dimensions.paddingSizeSmall,
+                mainAxisSpacing: Dimensions.paddingSizeSmall,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _ProductCard(
+                  product: filtered[index],
+                  onAdd: _addToCart,
+                  isOffline: _isOffline,
+                ),
+                childCount: filtered.length,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -310,31 +456,6 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
     );
   }
 
-  Widget _buildProductGrid(BuildContext context, List<Map<String, dynamic>> filtered, {Key? key}) {
-    // B17: RefreshIndicator on the product grid
-    return RefreshIndicator(
-      onRefresh: _loadProducts,
-      color: Theme.of(context).primaryColor,
-      child: GridView.builder(
-        key: key,
-        padding: const EdgeInsets.all(Dimensions.paddingSizeDefault),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.75,
-          crossAxisSpacing: Dimensions.paddingSizeSmall,
-          mainAxisSpacing: Dimensions.paddingSizeSmall,
-        ),
-        itemCount: filtered.length,
-        itemBuilder: (context, index) =>
-            _ProductCard(
-              product: filtered[index],
-              isOffline: _isOffline,
-              onAdd: _addToCart,
-            ),
-      ),
-    );
-  }
-
   void _addToCart(Map<String, dynamic> product) {
     // Items are always available — addToCart always succeeds.
     _martController.addToCart(product);
@@ -347,6 +468,75 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
 }
 
 // B14: Stateful product card with AnimatedScale + B13: CachedNetworkImage + B15: out-of-stock + B21: offline disable
+class _FeaturedProductCard extends StatelessWidget {
+  final Map<String, dynamic> product;
+  final void Function(Map<String, dynamic>) onAdd;
+
+  const _FeaturedProductCard({required this.product, required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = product['image'] as String?;
+    final model = MartProductModel.fromJson(Map<String, dynamic>.from(product));
+
+    return Container(
+      width: 140,
+      margin: const EdgeInsets.only(right: Dimensions.paddingSizeSmall),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(Dimensions.radiusDefault)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+          onTap: () {
+            final id = product['id']?.toString();
+            if (id != null && id.isNotEmpty) {
+              Get.to(() => MartProductDetailsScreen(
+                    productId: id,
+                    initialProduct: model,
+                    onAddToCart: (_) => onAdd(product),
+                  ));
+            }
+          },
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(Dimensions.radiusDefault)),
+                  child: imageUrl != null && imageUrl.isNotEmpty
+                      ? CachedNetworkImage(imageUrl: imageUrl, width: double.infinity, fit: BoxFit.cover,
+                          placeholder: (_, __) => Container(color: Theme.of(context).hintColor.withValues(alpha: 0.1)),
+                          errorWidget: (_, __, ___) => _placeholderIcon(context),
+                        )
+                      : _placeholderIcon(context),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(Dimensions.paddingSizeSmall),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(product['name'] ?? '', style: textMedium.copyWith(fontSize: Dimensions.fontSizeSmall),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Text('\$${model.effectivePrice.toStringAsFixed(2)}',
+                        style: textBold.copyWith(fontSize: Dimensions.fontSizeSmall,
+                            color: Theme.of(context).primaryColor)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholderIcon(BuildContext context) => Container(
+      color: Theme.of(context).hintColor.withValues(alpha: 0.1),
+      child: Center(child: Icon(Icons.inventory_2_outlined, size: 32, color: Theme.of(context).hintColor)));
+}
+
 class _ProductCard extends StatefulWidget {
   final Map<String, dynamic> product;
   final bool isOffline;
@@ -953,10 +1143,20 @@ class _MartCartScreenState extends State<MartCartScreen> {
                         padding: EdgeInsets.all(12),
                         child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
                       )
-                    : IconButton.outlined(
-                        tooltip: 'use_current_location'.tr,
-                        icon: const Icon(Icons.my_location),
-                        onPressed: _useCurrentLocation,
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton.outlined(
+                            tooltip: 'use_current_location'.tr,
+                            icon: const Icon(Icons.my_location),
+                            onPressed: _useCurrentLocation,
+                          ),
+                          IconButton.outlined(
+                            tooltip: 'pick_on_map'.tr,
+                            icon: const Icon(Icons.map_outlined),
+                            onPressed: () => _openDeliveryMapPicker(context),
+                          ),
+                        ],
                       ),
               ),
             ],
@@ -1182,6 +1382,28 @@ class _MartCartScreenState extends State<MartCartScreen> {
     }
   }
 
+  void _openDeliveryMapPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _DeliveryMapPicker(
+        initialLat: _deliveryLat,
+        initialLng: _deliveryLng,
+        initialAddress: _addressController.text,
+        onPicked: (lat, lng, address) {
+          if (mounted) {
+            setState(() {
+              _deliveryLat = lat;
+              _deliveryLng = lng;
+              _addressController.text = address.isNotEmpty ? address : '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
+            });
+          }
+        },
+      ),
+    );
+  }
+
   Future<void> _placeOrder() async {
     if (widget.cartItems.isEmpty) {
       Get.snackbar('error'.tr, 'cart_is_empty'.tr);
@@ -1269,3 +1491,167 @@ class _MartCartScreenState extends State<MartCartScreen> {
     return 'order_failed'.tr;
   }
 }
+
+// Bottom-sheet map picker for setting the delivery pin on a map.
+// Draggable up to 80% of screen height; user drags to reposition the pin.
+class _DeliveryMapPicker extends StatefulWidget {
+  final double? initialLat;
+  final double? initialLng;
+  final String initialAddress;
+  final void Function(double lat, double lng, String address) onPicked;
+
+  const _DeliveryMapPicker({
+    this.initialLat,
+    this.initialLng,
+    required this.initialAddress,
+    required this.onPicked,
+  });
+
+  @override
+  State<_DeliveryMapPicker> createState() => _DeliveryMapPickerState();
+}
+
+class _DeliveryMapPickerState extends State<_DeliveryMapPicker> {
+  double? _lat;
+  double? _lng;
+  String _address = '';
+  bool _isConfirming = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _lat = widget.initialLat;
+    _lng = widget.initialLng;
+    _address = widget.initialAddress;
+  }
+
+  void _onConfirm() {
+    if (_lat == null || _lng == null) {
+      Get.snackbar('error'.tr, 'please_select_location_on_map'.tr);
+      return;
+    }
+    setState(() => _isConfirming = true);
+    widget.onPicked(_lat!, _lng!, _address);
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const defaultLat = 37.7749;
+    const defaultLng = -122.4194;
+    final initial = _lat != null && _lng != null
+        ? gmap.LatLng(_lat!, _lng!)
+        : gmap.LatLng(defaultLat, defaultLng);
+
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.75,
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(Dimensions.radiusLarge)),
+      ),
+      child: Column(
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: Dimensions.paddingSizeSmall),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).dividerColor,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          // Map
+          Expanded(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(Dimensions.radiusLarge)),
+              child: VitoMap(
+                initialTarget: initial,
+                myLocationEnabled: true,
+                zoomControlsEnabled: true,
+                compassEnabled: true,
+                onCameraMove: (pos) {
+                  if (mounted) {
+                    setState(() {
+                      _lat = pos.center.latitude;
+                      _lng = pos.center.longitude;
+                      // Clear text address — user can keep coords or fill in manually after
+                      if (_address.isEmpty || _address == widget.initialAddress) {
+                        _address = '';
+                      }
+                    });
+                  }
+                },
+                onTap: (latLng) {
+                  if (mounted) {
+                    setState(() {
+                      _lat = latLng.latitude;
+                      _lng = latLng.longitude;
+                      _address = '';
+                    });
+                  }
+                },
+              ),
+            ),
+          ),
+          // Bottom bar: address + confirm
+          Container(
+            padding: EdgeInsets.fromLTRB(
+              Dimensions.paddingSizeDefault,
+              Dimensions.paddingSizeSmall,
+              Dimensions.paddingSizeDefault,
+              Dimensions.paddingSizeDefault + MediaQuery.of(context).padding.bottom,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _lat != null && _lng != null
+                      ? '${_lat!.toStringAsFixed(5)}, ${_lng!.toStringAsFixed(5)}'
+                      : 'tap_map_to_set_pin'.tr,
+                  style: textRegular.copyWith(
+                    fontSize: Dimensions.fontSizeSmall,
+                    color: Theme.of(context).hintColor,
+                  ),
+                ),
+                const SizedBox(height: Dimensions.paddingSizeSmall),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _isConfirming ? null : _onConfirm,
+                    icon: _isConfirming
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.check),
+                    label: Text(_isConfirming ? 'confirming'.tr : 'confirm_delivery_location'.tr),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

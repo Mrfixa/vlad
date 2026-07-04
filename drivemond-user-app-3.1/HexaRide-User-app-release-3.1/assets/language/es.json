@@ -320,7 +320,7 @@
     "great": "Genial",
     "good": "Bueno",
     "fair": "Regular",
-    "poor": "Malo",,
+    "poor": "Malo",
     "superb": "Excelente",
     "lovely": "Encantador",
     "satisfied": "Satisfecho",
@@ -1166,5 +1166,15 @@
     "otp": "OTP",
     "otp_must_be_6_digits": "El OTP debe tener 6 dígitos",
     "reset_pin": "Restablecer PIN",
-    "driver_has_arrived": "Tu conductor ha llegado al punto de recogida"
+    "driver_has_arrived": "Tu conductor ha llegado al punto de recogida",
+    "sort_default": "Por defecto",
+    "sort_price_low": "Precio: Bajo",
+    "sort_price_high": "Precio: Alto",
+    "featured": "Destacado",
+    "pick_on_map": "Elegir en mapa",
+    "please_select_location_on_map": "Por favor seleccione una ubicación en el mapa primero",
+    "tap_map_to_set_pin": "Toque el mapa o arrastre para posicionar el pin",
+    "confirming": "Confirmando…",
+    "confirm_delivery_location": "Confirmar ubicación de entrega",
+    "search_trips": "Buscar viajes…"
 }

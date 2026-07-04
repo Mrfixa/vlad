@@ -2,7 +2,7 @@ import 'package:get/get_connect/http/src/response/response.dart';
 import 'package:ride_sharing_user_app/interface/repository_interface.dart';
 
 abstract class MartRepositoryInterface implements RepositoryInterface {
-  Future<Response> getProducts({String? category, String? search, int limit});
+  Future<Response> getProducts({String? category, String? search, String? sort, int limit});
   Future<Response> getCategories();
   Future<Response> getProductDetails(String id);
   Future<Response> getOrders({int limit});
