@@ -886,7 +886,6 @@ if (!function_exists('abbreviateNumber')) {
     }
 }
 if (!function_exists('abbreviateNumberWithSymbol')) {
-    #TODO
     function abbreviateNumberWithSymbol(int|float|string $number): string
     {
         $points = (int)getSession('currency_decimal_point') ?? 0;

@@ -52,19 +52,22 @@ class NotificationHelper {
         if (kDebugMode) {
           print('Notification response ==> ${response.payload.toString()}');
         }
-        // TODO: Route
         try {
           if (response.payload != null && response.payload!.isNotEmpty) {
+            final orderId = response.payload!;
+            // Route mart order notifications to the delivery screen.
             if (kDebugMode) {
               print('Notification response ==> ${response.payload.toString()}');
             }
+            Get.offAll(() => const DashboardScreen());
+            Get.find<BottomMenuController>().setTabIndex(2);
+            Get.to(() => MartDeliveryScreen(orderId: orderId));
           }
         } catch (e) {
           if (kDebugMode) {
             print('Notification response ==> ${response.payload.toString()}');
           }
         }
-        return;
       },
 
       onDidReceiveBackgroundNotificationResponse: myBackgroundMessageReceiver,
