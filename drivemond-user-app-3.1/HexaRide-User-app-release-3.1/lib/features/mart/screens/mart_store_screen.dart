@@ -19,6 +19,9 @@ import 'package:ride_sharing_user_app/features/mart/screens/mart_payment_screen.
 import 'package:ride_sharing_user_app/features/mart/controllers/mart_controller.dart';
 import 'package:ride_sharing_user_app/util/app_colors.dart';
 import 'package:ride_sharing_user_app/features/profile/controllers/profile_controller.dart';
+import 'package:ride_sharing_user_app/features/location/view/pick_map_screen.dart';
+import 'package:ride_sharing_user_app/features/location/controllers/location_controller.dart';
+import 'package:ride_sharing_user_app/features/address/controllers/address_controller.dart';
 import 'package:ride_sharing_user_app/helper/display_helper.dart';
 
 class MartStoreScreen extends StatefulWidget {
@@ -45,6 +48,7 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
       _martController.getCategories();
     }
     _martController.getProducts();
+    _martController.getShelves();
   }
 
   @override
@@ -111,10 +115,46 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
       children: [
         _buildSearchBar(context),
         _buildCategoryFilter(context),
+        _buildSortChips(context),
         Expanded(
           child: _buildAnimatedContent(context), // B12: animated switcher with loading handled inside
         ),
       ],
+    );
+  }
+
+  static const List<(String, String)> _sortOptions = [
+    ('default', 'recommended'),
+    ('price_asc', 'price_low_to_high'),
+    ('price_desc', 'price_high_to_low'),
+    ('popular', 'most_popular'),
+  ];
+
+  Widget _buildSortChips(BuildContext context) {
+    return GetBuilder<MartController>(
+      builder: (controller) => SizedBox(
+        height: 40,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeDefault),
+          itemCount: _sortOptions.length,
+          itemBuilder: (context, index) {
+            final (value, labelKey) = _sortOptions[index];
+            return Padding(
+              padding: const EdgeInsets.only(right: Dimensions.paddingSizeSmall, top: Dimensions.paddingSizeExtraSmall),
+              child: ChoiceChip(
+                label: Text(labelKey.tr, style: textRegular.copyWith(fontSize: Dimensions.fontSizeSmall)),
+                selected: controller.selectedSort == value,
+                onSelected: (_) {
+                  HapticFeedback.selectionClick();
+                  controller.setSort(value);
+                },
+                selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+              ),
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -222,7 +262,11 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
               .toList();
         }
 
-        final stateKey = '${_selectedCategory}_$query';
+        // Shelves only make sense on the unfiltered default view.
+        final showShelves = _selectedCategory == 'all' && query.isEmpty && controller.selectedSort == 'default' &&
+            (controller.featuredProducts.isNotEmpty || controller.popularProducts.isNotEmpty);
+
+        final stateKey = '${_selectedCategory}_${query}_${controller.selectedSort}';
         return AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
@@ -230,7 +274,7 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
               ? _buildShimmerGrid(context)
               : filtered.isEmpty
                   ? _buildEmptyState(context, key: ValueKey('empty_$stateKey'))
-                  : _buildProductGrid(context, filtered, key: ValueKey('grid_$stateKey')),
+                  : _buildProductGrid(context, filtered, showShelves: showShelves, key: ValueKey('grid_$stateKey')),
         );
       },
     );
@@ -310,27 +354,83 @@ class _MartStoreScreenState extends State<MartStoreScreen> {
     );
   }
 
-  Widget _buildProductGrid(BuildContext context, List<Map<String, dynamic>> filtered, {Key? key}) {
+  Widget _buildProductGrid(BuildContext context, List<Map<String, dynamic>> filtered,
+      {bool showShelves = false, Key? key}) {
     // B17: RefreshIndicator on the product grid
     return RefreshIndicator(
       onRefresh: _loadProducts,
       color: Theme.of(context).primaryColor,
-      child: GridView.builder(
+      child: CustomScrollView(
         key: key,
-        padding: const EdgeInsets.all(Dimensions.paddingSizeDefault),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.75,
-          crossAxisSpacing: Dimensions.paddingSizeSmall,
-          mainAxisSpacing: Dimensions.paddingSizeSmall,
-        ),
-        itemCount: filtered.length,
-        itemBuilder: (context, index) =>
-            _ProductCard(
-              product: filtered[index],
-              isOffline: _isOffline,
-              onAdd: _addToCart,
+        slivers: [
+          if (showShelves) ...[
+            _buildShelf(context, 'featured_products', _martController.featuredProducts),
+            _buildShelf(context, 'popular_products', _martController.popularProducts),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(Dimensions.paddingSizeDefault,
+                    Dimensions.paddingSizeSmall, Dimensions.paddingSizeDefault, 0),
+                child: Text('all_products'.tr,
+                    style: textBold.copyWith(fontSize: Dimensions.fontSizeLarge)),
+              ),
             ),
+          ],
+          SliverPadding(
+            padding: const EdgeInsets.all(Dimensions.paddingSizeDefault),
+            sliver: SliverGrid(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                childAspectRatio: 0.75,
+                crossAxisSpacing: Dimensions.paddingSizeSmall,
+                mainAxisSpacing: Dimensions.paddingSizeSmall,
+              ),
+              delegate: SliverChildBuilderDelegate(
+                (context, index) => _ProductCard(
+                  product: filtered[index],
+                  isOffline: _isOffline,
+                  onAdd: _addToCart,
+                ),
+                childCount: filtered.length,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// A horizontal product shelf (Featured / Popular) shown above the main grid.
+  Widget _buildShelf(BuildContext context, String titleKey, List<MartProductModel> items) {
+    if (items.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+    return SliverToBoxAdapter(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(Dimensions.paddingSizeDefault,
+                Dimensions.paddingSizeSmall, Dimensions.paddingSizeDefault, Dimensions.paddingSizeExtraSmall),
+            child: Text(titleKey.tr, style: textBold.copyWith(fontSize: Dimensions.fontSizeLarge)),
+          ),
+          SizedBox(
+            height: 230,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: Dimensions.paddingSizeDefault),
+              itemCount: items.length,
+              itemBuilder: (context, index) => SizedBox(
+                width: 160,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: Dimensions.paddingSizeSmall),
+                  child: _ProductCard(
+                    product: items[index].toJson(),
+                    isOffline: _isOffline,
+                    onAdd: _addToCart,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -559,7 +659,6 @@ class _MartCartScreenState extends State<MartCartScreen> {
   double _tipAmount = 0.0;
   double? _deliveryLat;
   double? _deliveryLng;
-  bool _isLocating = false;
 
   // B25: payment method state
   String _paymentMethod = 'cash';
@@ -933,12 +1032,14 @@ class _MartCartScreenState extends State<MartCartScreen> {
               Expanded(
                 child: TextField(
                   controller: _addressController,
+                  readOnly: true,
+                  onTap: _pickAddressOnMap,
                   decoration: InputDecoration(
                     hintText: 'delivery_address'.tr,
                     prefixIcon: const Icon(Icons.location_on_outlined),
                     suffixIcon: _deliveryLat != null
                         ? const Icon(Icons.gps_fixed, color: AppColors.successGreen, size: 18)
-                        : null,
+                        : const Icon(Icons.map_outlined, size: 18),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
                     ),
@@ -948,16 +1049,11 @@ class _MartCartScreenState extends State<MartCartScreen> {
               const SizedBox(width: Dimensions.paddingSizeSmall),
               SizedBox(
                 height: 56,
-                child: _isLocating
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
-                      )
-                    : IconButton.outlined(
-                        tooltip: 'use_current_location'.tr,
-                        icon: const Icon(Icons.my_location),
-                        onPressed: _useCurrentLocation,
-                      ),
+                child: IconButton.outlined(
+                  tooltip: 'saved_addresses'.tr,
+                  icon: const Icon(Icons.bookmark_border),
+                  onPressed: _pickSavedAddress,
+                ),
               ),
             ],
           ),
@@ -1140,46 +1236,82 @@ class _MartCartScreenState extends State<MartCartScreen> {
     }
   }
 
-  Future<void> _useCurrentLocation() async {
-    setState(() => _isLocating = true);
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        if (mounted) Get.snackbar('error'.tr, 'location_service_disabled'.tr);
-        return;
-      }
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.deniedForever || permission == LocationPermission.denied) {
-        if (mounted) Get.snackbar('error'.tr, 'location_permission_denied'.tr);
-        return;
-      }
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
-      // Reject the "null island" (0,0) fix — a GPS/emulator glitch, not a real
-      // location — rather than silently sending it and hitting a generic 400
-      // from the backend after the order is submitted.
-      if (position.latitude == 0.0 && position.longitude == 0.0) {
-        if (mounted) Get.snackbar('error'.tr, 'location_fetch_failed'.tr);
-        return;
-      }
-      if (mounted) {
-        setState(() {
-          _deliveryLat = position.latitude;
-          _deliveryLng = position.longitude;
-          if (_addressController.text.isEmpty) {
-            _addressController.text = '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
-          }
-        });
-      }
-    } catch (e) {
-      if (mounted) Get.snackbar('error'.tr, 'location_fetch_failed'.tr);
-    } finally {
-      if (mounted) setState(() => _isLocating = false);
+  /// Opens the same map picker the ride/address flows use (pin confirm +
+  /// Places search + current-location FAB) and stores the confirmed
+  /// human-readable address with its coordinates.
+  void _pickAddressOnMap() {
+    Get.to(() => PickMapScreen(
+      type: LocationType.location,
+      onLocationPicked: (Position position, String address) {
+        // Reject the "null island" (0,0) fix — a GPS/emulator glitch, not a
+        // real location — rather than silently sending it to the backend.
+        if (position.latitude == 0.0 && position.longitude == 0.0) {
+          Get.snackbar('error'.tr, 'location_fetch_failed'.tr);
+          return;
+        }
+        if (mounted) {
+          setState(() {
+            _addressController.text = address;
+            _deliveryLat = position.latitude;
+            _deliveryLng = position.longitude;
+          });
+        }
+      },
+    ));
+  }
+
+  /// Quick pick from the customer's saved addresses (home/work/etc.).
+  void _pickSavedAddress() {
+    final addressController = Get.find<AddressController>();
+    if (addressController.addressList == null) {
+      addressController.getAddressList(1);
     }
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(Dimensions.radiusLarge)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: GetBuilder<AddressController>(
+          builder: (controller) {
+            final addresses = controller.addressList ?? [];
+            if (addresses.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.all(Dimensions.paddingSizeLarge),
+                child: Text('no_data_found'.tr, style: textRegular, textAlign: TextAlign.center),
+              );
+            }
+            return ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(Dimensions.paddingSizeDefault),
+              itemCount: addresses.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (_, index) {
+                final address = addresses[index];
+                return ListTile(
+                  leading: Icon(
+                    address.addressLabel == 'home' ? Icons.home_outlined
+                        : address.addressLabel == 'office' ? Icons.work_outline
+                        : Icons.place_outlined,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  title: Text((address.addressLabel ?? '').tr, style: textMedium),
+                  subtitle: Text(address.address ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: textRegular),
+                  onTap: () {
+                    setState(() {
+                      _addressController.text = address.address ?? '';
+                      _deliveryLat = address.latitude;
+                      _deliveryLng = address.longitude;
+                    });
+                    Navigator.of(ctx).pop();
+                  },
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
   }
 
   Future<void> _placeOrder() async {

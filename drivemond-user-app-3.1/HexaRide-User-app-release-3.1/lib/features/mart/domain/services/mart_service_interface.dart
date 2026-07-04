@@ -1,5 +1,6 @@
 abstract class MartServiceInterface {
-  Future<dynamic> getProducts({String? category, String? search, int limit});
+  Future<dynamic> getProducts({String? category, String? search, int limit,
+      String? sort, bool? isFeatured, bool? isPopular});
   Future<dynamic> getCategories();
   Future<dynamic> getProductDetails(String id);
   Future<dynamic> getOrders({int limit});

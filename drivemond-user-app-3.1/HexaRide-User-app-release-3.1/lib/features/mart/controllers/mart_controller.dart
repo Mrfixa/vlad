@@ -26,6 +26,12 @@ class MartController extends GetxController implements GetxService {
   List<MartCategoryModel> categories = [];
   String selectedCategory = 'all';
 
+  // Catalog sort ('default' | price_asc | price_desc | popular) and the
+  // Featured/Popular home shelves.
+  String selectedSort = 'default';
+  List<MartProductModel> featuredProducts = [];
+  List<MartProductModel> popularProducts = [];
+
   List<MartOrderModel> orders = [];
   MartOrderModel? currentOrder;
   MartProductModel? productDetails;
@@ -197,7 +203,10 @@ class MartController extends GetxController implements GetxService {
   Future<void> getProducts({String? category, String? search, bool notify = true}) async {
     isLoading = true;
     if (notify) update();
-    final response = await martServiceInterface.getProducts(category: category ?? selectedCategory, search: search);
+    final response = await martServiceInterface.getProducts(
+        category: category ?? selectedCategory,
+        search: search,
+        sort: selectedSort == 'default' ? null : selectedSort);
     if (response.statusCode == 200) {
       products = _extractList(response.body)
           .whereType<Map<String, dynamic>>()
@@ -225,6 +234,34 @@ class MartController extends GetxController implements GetxService {
     selectedCategory = category;
     update();
     getProducts(category: category);
+  }
+
+  void setSort(String sort) {
+    if (selectedSort == sort) return;
+    selectedSort = sort;
+    update();
+    getProducts();
+  }
+
+  /// Loads the Featured and Popular shelves shown at the top of the store.
+  Future<void> getShelves({bool notify = true}) async {
+    final responses = await Future.wait([
+      martServiceInterface.getProducts(isFeatured: true, limit: 10),
+      martServiceInterface.getProducts(isPopular: true, limit: 10),
+    ]);
+    if (responses[0].statusCode == 200) {
+      featuredProducts = _extractList(responses[0].body)
+          .whereType<Map<String, dynamic>>()
+          .map(MartProductModel.fromJson)
+          .toList();
+    }
+    if (responses[1].statusCode == 200) {
+      popularProducts = _extractList(responses[1].body)
+          .whereType<Map<String, dynamic>>()
+          .map(MartProductModel.fromJson)
+          .toList();
+    }
+    if (notify) update();
   }
 
   Future<MartProductModel?> getProductDetails(String id) async {

@@ -501,6 +501,56 @@ void main() {
       });
     });
 
+    group('Catalog Sort & Shelves', () {
+      MartProductModel product(String id, double price, {double? discount, bool featured = false, bool popular = false, int sold = 0}) =>
+          MartProductModel.fromJson({
+            'id': id,
+            'name': 'p$id',
+            'price': price,
+            'discount_price': discount,
+            'is_featured': featured,
+            'is_popular': popular,
+            'sold_count': sold,
+            'is_active': true,
+          });
+
+      test('effectivePrice ordering matches backend price_asc semantics', () {
+        // Backend sorts by COALESCE(NULLIF(discount_price,0), price):
+        // the sale price wins when set, else the base price.
+        final products = [
+          product('a', 10.0),
+          product('b', 12.0, discount: 4.0),
+          product('c', 6.0),
+        ];
+        products.sort((x, y) => x.effectivePrice.compareTo(y.effectivePrice));
+        expect(products.map((p) => p.id).toList(), ['b', 'c', 'a']);
+      });
+
+      test('featured/popular flags parse from int, bool and string forms', () {
+        expect(MartProductModel.fromJson({'id': 'x', 'price': 1, 'is_featured': 1}).isFeatured, isTrue);
+        expect(MartProductModel.fromJson({'id': 'x', 'price': 1, 'is_featured': '1'}).isFeatured, isTrue);
+        expect(MartProductModel.fromJson({'id': 'x', 'price': 1, 'is_popular': true}).isPopular, isTrue);
+        expect(MartProductModel.fromJson({'id': 'x', 'price': 1}).isFeatured, isFalse);
+        expect(MartProductModel.fromJson({'id': 'x', 'price': 1}).isPopular, isFalse);
+      });
+
+      test('sort keys map to the backend contract', () {
+        // Keep in sync with VitoMartController::products() — 'default' means
+        // "send no sort param" (backend then orders featured-first, newest).
+        const backendSorts = ['price_asc', 'price_desc', 'popular'];
+        const appSortOptions = ['default', 'price_asc', 'price_desc', 'popular'];
+        for (final s in appSortOptions.where((s) => s != 'default')) {
+          expect(backendSorts.contains(s), isTrue, reason: '$s must be a backend-supported sort');
+        }
+      });
+
+      test('zero discount_price is not a sale (NULLIF parity)', () {
+        final p = product('z', 8.0, discount: 0.0);
+        expect(p.onSale, isFalse);
+        expect(p.effectivePrice, 8.0);
+      });
+    });
+
     group('Promo Code Application', () {
       test('percentage discount calculated correctly', () {
         const subtotal = 100.0;

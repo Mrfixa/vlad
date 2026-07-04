@@ -23,12 +23,22 @@ class TripController extends GetxController implements GetxService {
   String get filterStartDate => _filterStartDate;
   String get filterEndDate => _filterEndDate;
 
+  // Free-text filter applied client-side over the loaded pages (the backend
+  // ride list has no search param), matching the tab filter's semantics.
+  String searchQuery = '';
+
+  void setSearchQuery(String query) {
+    searchQuery = query.trim().toLowerCase();
+    update();
+  }
+
   void initData() {
     filterIndex = 0;
     statusIndex = 0;
     _showCustomDate = false;
     _filterStartDate = '';
     _filterEndDate = '';
+    searchQuery = '';
   }
 
   void setStatusIndex(int index){

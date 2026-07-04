@@ -22,6 +22,7 @@ class TripScreen extends StatefulWidget {
 class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateMixin{
   late TabController tabController;
   final ScrollController scrollController = ScrollController();
+  final TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateM
   void dispose() {
     tabController.dispose();
     scrollController.dispose();
+    searchController.dispose();
     super.dispose();
   }
 
@@ -55,6 +57,28 @@ class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateM
               padding: const EdgeInsets.all(Dimensions.paddingSizeDefault),
               child: GetBuilder<TripController>(builder: (tripController) {
                 return Column(children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Dimensions.paddingSizeSmall),
+                    child: TextField(
+                      controller: searchController,
+                      onChanged: tripController.setSearchQuery,
+                      decoration: InputDecoration(
+                        hintText: 'search_trips'.tr,
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: tripController.searchQuery.isEmpty ? null : IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            searchController.clear();
+                            tripController.setSearchQuery('');
+                          },
+                        ),
+                        isDense: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+                        ),
+                      ),
+                    ),
+                  ),
                   TabBar(
                     controller: tabController,
                     unselectedLabelColor: Colors.grey,
@@ -96,7 +120,16 @@ class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateM
 
   Widget tabBarBodyWidget (TripController tripController, String filter){
     // GAP-018: Filter trips by status based on selected tab
+    final query = tripController.searchQuery;
     final filteredTrips = tripController.tripModel?.data?.where((trip) {
+      // Free-text search over ref id + addresses (covers loaded pages only,
+      // same as the tab filter — new pages re-apply it as they arrive).
+      if (query.isNotEmpty &&
+          !(trip.refId ?? '').toLowerCase().contains(query) &&
+          !(trip.pickupAddress ?? '').toLowerCase().contains(query) &&
+          !(trip.destinationAddress ?? '').toLowerCase().contains(query)) {
+        return false;
+      }
       switch (filter) {
         case 'ongoing':
           return trip.currentStatus == 'accepted' || trip.currentStatus == 'started';
