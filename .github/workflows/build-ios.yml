@@ -13,7 +13,7 @@ on:
   # Re-verify iOS after the mart store/favorites compile fix (d714fa8).
   workflow_dispatch:
   push:
-    branches: [master, 'claude/claude-md-docs-ksrmcf']
+    branches: [master, main, 'claude/claude-md-docs-ksrmcf']
     paths:
       - '.github/workflows/build-ios.yml'
       # Re-verify the iOS build whenever either app's dependencies change, since

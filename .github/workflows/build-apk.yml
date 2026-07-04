@@ -6,6 +6,7 @@ on:
       - 'v*'
     branches:
       - 'master'
+      - 'main'
       - 'vlad'
       - 'claude/analyze-mart-qr-code-FySPn'
       - 'claude/init-yn5zw0'
