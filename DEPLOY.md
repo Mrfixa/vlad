@@ -156,6 +156,9 @@ cd $APP
 php artisan key:generate
 php artisan passport:keys --force
 php artisan migrate --force
+# REQUIRED before seeding in production: set ADMIN_SEED_EMAIL and
+# ADMIN_SEED_PASSWORD (≥ 12 chars) in .env — the seeder refuses to create the
+# well-known demo admin (admin@admin.com / 12345678) when APP_ENV=production.
 php artisan db:seed --force
 php artisan passport:client --personal --no-interaction
 php artisan storage:link
@@ -256,6 +259,12 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## Step 10 — Supervisor (queue workers + Reverb)
 
+> Reference configs are committed at
+> `drivemond-admin-new-install-3.1/deploy/supervisor/vito-worker.conf` and
+> `drivemond-admin-new-install-3.1/deploy/systemd/vito-worker.service` — copy
+> and adjust paths/user instead of hand-typing if you prefer. A running worker
+> is **required**: the ride-timeout auto-cancel job is silently dropped without one.
+
 ```bash
 sudo tee /etc/supervisor/conf.d/vito.conf > /dev/null <<CONF
 [program:vito-worker]
@@ -318,6 +327,20 @@ curl -s https://$DOMAIN/api/customer/auth/check | python3 -m json.tool
 # Landing page?
 curl -si https://$LANDING | head -2
 ```
+
+---
+
+## Security checklist (owner actions — cannot be automated)
+
+- **Swish**: the live merchant private key was committed to git history in the past.
+  Treat it as compromised: revoke/reissue the certificate with the Swish provider,
+  mount the new key outside the repo (env-configured path), and purge the old blobs
+  from git history (`git filter-repo`) followed by a force-push. Test certs have been
+  untracked, but history still contains them until purged.
+- **Admin credentials**: after seeding, verify no `admin@admin.com` account exists in
+  production and rotate `ADMIN_SEED_PASSWORD` if it was ever shared.
+- **Broadcast secrets**: generate unique `REVERB_APP_ID/KEY/SECRET` (mirrored to
+  `PUSHER_*`) per environment — never reuse values between staging and production.
 
 ---
 

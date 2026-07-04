@@ -39,6 +39,13 @@ class AuthServiceProvider extends ServiceProvider
             'AccessToSuperAdmin' => 'Super admin access',
         ]);
 
+        // Bound token lifetimes (Passport's default is ~forever). Both apps already
+        // invalidate their stored session on a startup-confirmed 401, so expired
+        // tokens simply force a re-login.
+        Passport::tokensExpireIn(now()->addDays((int) config('app.passport_token_days', 30)));
+        Passport::refreshTokensExpireIn(now()->addDays((int) config('app.passport_refresh_token_days', 60)));
+        Passport::personalAccessTokensExpireIn(now()->addDays((int) config('app.passport_token_days', 30)));
+
         Gate::define('super-admin', fn () => auth()->user()->user_type == 'super-admin');
 
         Gate::define('dashboard', fn () => $this->checkAccess('dashboard', 'view'));

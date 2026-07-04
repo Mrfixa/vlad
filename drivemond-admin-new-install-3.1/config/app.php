@@ -19,6 +19,10 @@ return [
     // .env is no longer loaded). AppServiceProvider re-hydrates env() from this.
     'app_mode' => env('APP_MODE', 'live'),
 
+    // Passport token lifetimes in days (see AuthServiceProvider::boot).
+    'passport_token_days' => env('PASSPORT_TOKEN_DAYS', 30),
+    'passport_refresh_token_days' => env('PASSPORT_REFRESH_TOKEN_DAYS', 60),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

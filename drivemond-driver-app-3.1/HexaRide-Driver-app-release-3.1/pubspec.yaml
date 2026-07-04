@@ -88,7 +88,9 @@ dependency_overrides:
   open_file_plus:
     git:
       url: https://github.com/postflow/open_file_plus.git
-      ref: main
+      # Pinned to an immutable commit (matches pubspec.lock's resolved-ref) so a
+      # third-party force-push to `main` can't silently change what ships.
+      ref: b29351d11174869ebe0d7a5401ecad0a2300a63b
 
 
 dev_dependencies:

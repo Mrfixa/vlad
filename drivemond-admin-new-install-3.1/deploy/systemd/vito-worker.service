@@ -1,0 +1,24 @@
+# systemd alternative to deploy/supervisor/vito-worker.conf.
+# Required in production: the ride-timeout auto-cancel job (RideTimeoutJob) is
+# queued and silently dropped unless a worker is running with QUEUE_CONNECTION=redis.
+#
+# Install:
+#   sudo cp deploy/systemd/vito-worker.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now vito-worker
+#
+# Adjust the paths/user below to your deployment.
+
+[Unit]
+Description=Vito Laravel queue worker
+After=network.target redis-server.service
+
+[Service]
+User=www-data
+Group=www-data
+Restart=always
+RestartSec=3
+ExecStart=/usr/bin/php /var/www/vito/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+TimeoutStopSec=3600
+
+[Install]
+WantedBy=multi-user.target

@@ -45,12 +45,14 @@ Future<void> main() async {
     // Firebase init must never take down app startup.
     try {
       if(GetPlatform.isAndroid) {
+        // Overridable per build via --dart-define=FIREBASE_* so a flavor/tenant
+        // can point at its own Firebase project without a code change.
         await Firebase.initializeApp(
           options: const FirebaseOptions(
-            apiKey: "AIzaSyCFGqSEiWMItei_AFIUgdM53PWrvyGmjFY",
-            appId: "1:76471554747:android:28346318a6d400326d0f9e",
-            messagingSenderId: "76471554747",
-            projectId: "drivevalley-fdb7f",
+            apiKey: String.fromEnvironment('FIREBASE_API_KEY', defaultValue: "AIzaSyCFGqSEiWMItei_AFIUgdM53PWrvyGmjFY"),
+            appId: String.fromEnvironment('FIREBASE_APP_ID', defaultValue: "1:76471554747:android:28346318a6d400326d0f9e"),
+            messagingSenderId: String.fromEnvironment('FIREBASE_MESSAGING_SENDER_ID', defaultValue: "76471554747"),
+            projectId: String.fromEnvironment('FIREBASE_PROJECT_ID', defaultValue: "drivevalley-fdb7f"),
           ),
         );
       } else {
