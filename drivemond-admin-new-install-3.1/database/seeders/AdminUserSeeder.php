@@ -13,24 +13,45 @@ class AdminUserSeeder extends Seeder
     /**
      * Run the database seeds.
      *
-     * @return void
+     * In production (APP_ENV=production) this seeder requires explicit env vars
+     * ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD to be set. If either is missing it
+     * aborts with a clear warning rather than seeding a hard-coded credential.
+     * In local/testing environments the defaults (admin@admin.com / 12345678) are
+     * used so `db:seed` continues to work out of the box.
      */
-    public function run()
+    public function run(): void
     {
-        // Idempotent: only create the super-admin if it does not already exist,
-        // so re-seeding never duplicates the row or mutates its id (FK-safe).
-        if (DB::table('users')->where('email', 'admin@admin.com')->exists()) {
+        if (app()->environment('production')) {
+            $email    = env('ADMIN_SEED_EMAIL');
+            $password = env('ADMIN_SEED_PASSWORD');
+
+            if (empty($email) || empty($password)) {
+                $this->command?->warn(
+                    'AdminUserSeeder: skipping super-admin seed in production. '
+                    .'Set ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD env vars to create the account.'
+                );
+
+                return;
+            }
+        } else {
+            // Local / testing defaults — never used in production.
+            $email    = 'admin@admin.com';
+            $password = '12345678';
+        }
+
+        // Idempotent: skip if the account already exists.
+        if (DB::table('users')->where('email', $email)->exists()) {
             return;
         }
 
         DB::table('users')->insert([
-            'id' => Uuid::uuid4(),
+            'id'         => Uuid::uuid4(),
             'first_name' => 'Super',
-            'last_name' => 'Admin',
-            'email' => 'admin@admin.com',
-            'password' => bcrypt(12345678),
-            'user_type' => 'super-admin',
-            'is_active' => true
+            'last_name'  => 'Admin',
+            'email'      => $email,
+            'password'   => bcrypt($password),
+            'user_type'  => 'super-admin',
+            'is_active'  => true,
         ]);
     }
 }

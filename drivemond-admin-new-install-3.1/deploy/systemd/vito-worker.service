@@ -1,0 +1,33 @@
+; Vito Laravel Queue Worker — systemd unit
+;
+; Deploy steps:
+;   1. Copy this file to /etc/systemd/system/vito-worker.service
+;   2. Adjust ExecStart paths (VITO_PATH) to match your deployment
+;   3. Run: sudo systemctl daemon-reload
+;   4. Enable:  sudo systemctl enable vito-worker
+;   5. Start:   sudo systemctl start vito-worker
+;
+; The ride-timeout auto-cancel job needs this service running.
+; For production use QUEUE_CONNECTION=redis and ensure REDIS_* vars are configured.
+;
+; See also: deploy/supervisor/vito-worker.conf (Supervisor alternative)
+
+[Unit]
+Description=Vito Laravel Queue Worker
+After=network.target mysql.service redis-server.service
+Wants=mysql.service redis-server.service
+
+[Service]
+Type=simple
+; Adjust to your deployment path
+ExecStart=/usr/bin/php /var/www/vito/artisan queue:work database --sleep=3 --tries=3 --max-time=3600
+Restart=on-failure
+RestartSec=5s
+User=www-data
+StandardOutput=journal
+StandardError=journal
+; Kill the worker after 1 hour to prevent memory leaks; systemd restarts it immediately.
+TimeoutStopSec=30s
+
+[Install]
+WantedBy=multi-user.target

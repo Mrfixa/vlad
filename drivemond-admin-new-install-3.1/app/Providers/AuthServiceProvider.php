@@ -24,10 +24,23 @@ class AuthServiceProvider extends ServiceProvider
      *
      * @return void
      */
-    public function boot()
+    public function boot(): void
     {
         $this->registerPolicies();
        // Passport::routes();
+
+        // Token expiry: env-overridable, defaults 30-day access + 60-day refresh.
+        // Both apps invalidate session on a startup-confirmed 401, so expiry is safe.
+        Passport::tokensExpireIn(
+            now()->addDays((int) env('PASSPORT_TOKEN_EXPIRY_DAYS', 30))
+        );
+        Passport::refreshTokensExpireIn(
+            now()->addDays((int) env('PASSPORT_REFRESH_EXPIRY_DAYS', 60))
+        );
+        // Personal access tokens (used for personal access clients) also expire.
+        Passport::personalAccessTokensExpireIn(
+            now()->addMonths((int) env('PASSPORT_PERSONAL_TOKEN_EXPIRY_MONTHS', 6))
+        );
 
         // Register the API token scopes. Vito's pin-login/registration mint
         // tokens with these scopes; without registration Passport rejects them
