@@ -4453,4 +4453,7 @@
   'The order id must be a valid UUID.' => 'The order id must be a valid UUID.',
   'The selected role is invalid.' => 'The selected role is invalid.',
   'The token must be at least 6 characters.' => 'The token must be at least 6 characters.',
+  'No user found with that information' => 'No user found with that information',
+  'The email field is required.' => 'The email field is required.',
+  'The medium field is required.' => 'The medium field is required.',
 );

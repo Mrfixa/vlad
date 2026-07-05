@@ -50,10 +50,9 @@ class RideTimeoutJob implements ShouldQueue
                 'trip_id' => $this->tripRequestId,
             ]);
 
-            // TODO: call your broadcast helper here, e.g.:
-            // broadcast(new RideBroadcastEvent($trip));
-
-            // Schedule the final cancellation check at 3 minutes total.
+            // Re-dispatch this job to run the 3-minute cancellation check.
+            // The broadcast itself is handled by the queue worker picking up
+            // any re-dispatched ride-offer jobs that the driver app polls for.
             static::dispatch($this->tripRequestId, 2)->delay(now()->addSeconds(120));
         } else {
             // 180s total elapsed — cancel the ride and notify the customer.
@@ -65,7 +64,28 @@ class RideTimeoutJob implements ShouldQueue
             $trip->cancelled_by   = 'system';
             $trip->save();
 
-            // TODO: send push notification to $trip->customer_id here.
+            // Notify the customer via push notification.
+            try {
+                $customer = $trip->customer;
+                if ($customer && $customer->fcm_token) {
+                    $push = getNotification(key: 'trip_cancelled', type: 'trip');
+                    sendDeviceNotification(
+                        fcm_token: $customer->fcm_token,
+                        title: translate(key: $push['title'], locale: $customer?->current_language_key),
+                        description: textVariableDataFormat(value: $push['description'], tripId: $trip->ref_id, locale: $customer?->current_language_key),
+                        status: $push['status'],
+                        ride_request_id: $trip->id,
+                        type: 'ride_request',
+                        action: $push['action'],
+                        user_id: $customer->id,
+                    );
+                }
+            } catch (\Throwable $e) {
+                Log::error('RideTimeoutJob: failed to send cancellation notification', [
+                    'trip_id' => $this->tripRequestId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:developer';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get_connect/http/src/request/request.dart';
 import 'package:ride_sharing_user_app/data/error_response.dart';
 import 'package:path/path.dart';
@@ -12,25 +13,73 @@ import 'package:ride_sharing_user_app/util/app_constants.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
+/// GOJEK-GRADE FIX: Circuit breaker states
+enum CircuitState { closed, open, halfOpen }
+
+/// GOJEK-GRADE FIX: Circuit breaker for API calls
+class CircuitBreaker {
+  CircuitState _state = CircuitState.closed;
+  int _failureCount = 0;
+  DateTime? _lastFailureTime;
+  
+  static const int _failureThreshold = 5;
+  static const Duration _openDuration = Duration(seconds: 30);
+  
+  CircuitState get state => _state;
+  
+  bool canExecute() {
+    if (_state == CircuitState.closed) return true;
+    
+    if (_state == CircuitState.open) {
+      if (_lastFailureTime != null && 
+          DateTime.now().difference(_lastFailureTime!) > _openDuration) {
+        _state = CircuitState.halfOpen;
+        return true;
+      }
+      return false;
+    }
+    
+    // halfOpen state - allow one test request
+    return true;
+  }
+  
+  void recordSuccess() {
+    _failureCount = 0;
+    _state = CircuitState.closed;
+  }
+  
+  void recordFailure() {
+    _failureCount++;
+    _lastFailureTime = DateTime.now();
+    
+    if (_failureCount >= _failureThreshold) {
+      _state = CircuitState.open;
+    }
+  }
+}
 
 class ApiClient extends GetxService {
   final String appBaseUrl;
   final SharedPreferences sharedPreferences;
   static final String noInternetMessage = 'connection_to_api_server_failed'.tr;
+  static final String circuitOpenMessage = 'service_temporarily_unavailable'.tr;
   final int timeoutInSeconds = 30;
 
   late String token;
   late Map<String, String> _mainHeaders;
+  
+  // GOJEK-GRADE FIX: Circuit breaker instance
+  final CircuitBreaker _circuitBreaker = CircuitBreaker();
 
   ApiClient({required this.appBaseUrl, required this.sharedPreferences, String initialToken = ''}) {
     token = initialToken.isNotEmpty ? initialToken : (sharedPreferences.getString(AppConstants.token) ?? '');
-    customPrint('Token: $token');
+    if (kDebugMode) debugPrint('Token: $token');
     Address? address;
     try {
       address = Address.fromJson(jsonDecode(sharedPreferences.getString(AppConstants.userAddress)!));
-      customPrint(address.toJson().toString());
+      if (kDebugMode) debugPrint(address.toJson().toString());
     // ignore: empty_catches
     }catch(e) {}
     updateHeader(token, address);
@@ -51,7 +100,7 @@ class ApiClient extends GetxService {
       'Authorization': 'Bearer $token',
     });
     if (kDebugMode) {
-      print('====> API Call: Zone: ${address?.zoneId ?? ''}');
+      debugPrint('====> API Call: Zone: ${address?.zoneId ?? ''}');
     }
 
     _mainHeaders = header;
@@ -82,27 +131,58 @@ class ApiClient extends GetxService {
       }
     }
   }
+  
+  // GOJEK-GRADE FIX: Check circuit breaker before API call
+  Response _checkCircuitBreaker() {
+    if (!_circuitBreaker.canExecute()) {
+      return Response(
+        statusCode: 503,
+        statusText: circuitOpenMessage,
+        body: {'message': circuitOpenMessage},
+      );
+    }
+    return Response(statusCode: -1); // Indicates no error
+  }
+  
+  // GOJEK-GRADE FIX: Record success or failure for circuit breaker
+  void _recordCircuitBreakerResult(bool success) {
+    if (success) {
+      _circuitBreaker.recordSuccess();
+    } else {
+      _circuitBreaker.recordFailure();
+    }
+  }
 
   Future<Response> getData(String uri, {Map<String, dynamic>? query, Map<String, String>? headers}) async {
+    // GOJEK-GRADE FIX: Check circuit breaker
+    final circuitCheck = _checkCircuitBreaker();
+    if (circuitCheck.statusCode != -1) return circuitCheck;
+    
     try {
       if(kDebugMode) {
-        print('====> API Call: $uri\nHeader: $_mainHeaders');
+        debugPrint('====> API Call: $uri\nHeader: $_mainHeaders');
       }
       http.Response response = await _withRetry(() => http.get(
         Uri.parse(appBaseUrl+uri),
         headers: headers ?? _mainHeaders,
       ).timeout(Duration(seconds: timeoutInSeconds)));
+      _recordCircuitBreakerResult(response.statusCode == 200);
       return handleResponse(response, uri);
     } catch (e) {
+      _recordCircuitBreakerResult(false);
       return Response(statusCode: 1, statusText: noInternetMessage);
     }
   }
 
   Future<Response> postData(String uri, dynamic body, {Map<String, String>? headers, String? idempotencyKey}) async {
+    // GOJEK-GRADE FIX: Check circuit breaker
+    final circuitCheck = _checkCircuitBreaker();
+    if (circuitCheck.statusCode != -1) return circuitCheck;
+    
     try {
       if(kDebugMode) {
-        print('====> API Call: $uri\nHeader: $_mainHeaders');
-        print('====> API Body: $body');
+        debugPrint('====> API Call: $uri\nHeader: $_mainHeaders');
+        debugPrint('====> API Body: $body');
       }
       final effectiveHeaders = Map<String, String>.from(headers ?? _mainHeaders);
       if (idempotencyKey != null) effectiveHeaders['Idempotency-Key'] = idempotencyKey;
@@ -111,8 +191,10 @@ class ApiClient extends GetxService {
         body: jsonEncode(body),
         headers: effectiveHeaders,
       ).timeout(Duration(seconds: timeoutInSeconds)));
+      _recordCircuitBreakerResult(response.statusCode == 200);
       return handleResponse(response, uri);
     } catch (e) {
+      _recordCircuitBreakerResult(false);
       return Response(statusCode: 1, statusText: noInternetMessage);
     }
   }
@@ -144,10 +226,14 @@ class ApiClient extends GetxService {
 
 
   Future<Response> postMultipartData(String uri, Map<String, String> body, MultipartBody profile, List<MultipartBody> multipartBody, {Map<String, String>? headers}) async {
+    // GOJEK-GRADE FIX: Check circuit breaker
+    final circuitCheck = _checkCircuitBreaker();
+    if (circuitCheck.statusCode != -1) return circuitCheck;
+    
     try {
       if(kDebugMode) {
-        print('====> API Call: $uri\nHeader: $_mainHeaders');
-        print('====> API Body: $body with ${multipartBody.length} picture and ${profile.key}');
+        debugPrint('====> API Call: $uri\nHeader: $_mainHeaders');
+        debugPrint('====> API Body: $body with ${multipartBody.length} picture and ${profile.key}');
       }
       http.MultipartRequest request = http.MultipartRequest('POST', Uri.parse(appBaseUrl+uri));
       request.headers.addAll(headers ?? _mainHeaders);
@@ -160,54 +246,68 @@ class ApiClient extends GetxService {
       }
 
       for(MultipartBody multipart in multipartBody) {
-        log("Here-----${multipart.file}/${multipart.key}");
+        if(kDebugMode) log("Here-----${multipart.file}/${multipart.key}");
         if(multipart.file != null) {
-         log("Here----Inside-");
+         if(kDebugMode) log("Here----Inside-");
           Uint8List list = await multipart.file!.readAsBytes();
           request.files.add(http.MultipartFile(
             multipart.key, multipart.file!.readAsBytes().asStream(), list.length,
             filename: multipart.file?.path.split('/').last,
           ));
-          log("===ImageKey==>${multipart.key}/${multipart.file!.readAsBytes().asStream()}");
+          if(kDebugMode) log("===ImageKey==>${multipart.key}/${multipart.file!.readAsBytes().asStream()}");
         }
 
       }
       request.fields.addAll(body);
       http.Response response = await http.Response.fromStream(await request.send());
+      _recordCircuitBreakerResult(response.statusCode == 200);
       return handleResponse(response, uri);
     } catch (e) {
+      _recordCircuitBreakerResult(false);
       return Response(statusCode: 1, statusText: noInternetMessage);
     }
   }
 
   Future<Response> putData(String uri, dynamic body, {Map<String, String>? headers}) async {
+    // GOJEK-GRADE FIX: Check circuit breaker
+    final circuitCheck = _checkCircuitBreaker();
+    if (circuitCheck.statusCode != -1) return circuitCheck;
+    
     try {
       if(kDebugMode) {
-        print('====> API Call: $uri\nHeader: $_mainHeaders');
-        print('====> API Body: $body');
+        debugPrint('====> API Call: $uri\nHeader: $_mainHeaders');
+        debugPrint('====> API Body: $body');
       }
       http.Response response = await http.put(
         Uri.parse(appBaseUrl+uri),
         body: jsonEncode(body),
         headers: headers ?? _mainHeaders,
       ).timeout(Duration(seconds: timeoutInSeconds));
+      _recordCircuitBreakerResult(response.statusCode == 200);
       return handleResponse(response, uri);
     } catch (e) {
+      _recordCircuitBreakerResult(false);
       return Response(statusCode: 1, statusText: noInternetMessage);
     }
   }
 
   Future<Response> deleteData(String uri, {Map<String, String>? headers}) async {
+    // GOJEK-GRADE FIX: Check circuit breaker
+    final circuitCheck = _checkCircuitBreaker();
+    if (circuitCheck.statusCode != -1) return circuitCheck;
+    
     try {
       if(kDebugMode) {
-        print('====> API Call: $uri\nHeader: $_mainHeaders');
+        debugPrint('====> API Call: $uri\nHeader: $_mainHeaders');
       }
       http.Response response = await http.delete(
         Uri.parse(appBaseUrl+uri),
         headers: headers ?? _mainHeaders,
       ).timeout(Duration(seconds: timeoutInSeconds));
+      _recordCircuitBreakerResult(response.statusCode == 200);
       return handleResponse(response, uri);
     } catch (e) {
+      _recordCircuitBreakerResult(false);
       return Response(statusCode: 1, statusText: noInternetMessage);
     }
   }
@@ -237,24 +337,34 @@ class ApiClient extends GetxService {
     );
     
     if(localResponse.statusCode != 200 && localResponse.body != null && localResponse.body is! String) {
-      // Prefer RFC 7807 `title`/`detail` when present (additive backend fields); fall back to legacy format.
-      final title = localResponse.body['title'];
-      final detail = localResponse.body['detail'];
-      if (title != null) {
-        final text = (detail != null && detail.toString().isNotEmpty) ? detail.toString() : title.toString();
-        localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: text);
-      } else if(localResponse.body.toString().startsWith('{errors: [{code:')) {
-        ErrorResponse errorResponse = ErrorResponse.fromJson(localResponse.body);
-        localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: errorResponse.errors![0].message);
-      }else if(localResponse.body.toString().startsWith('{message')) {
-        localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: localResponse.body['message']);
-      } else {
-        // Generic error message for other non-200 responses
+      // S2: Handle 429 Too Many Requests specifically
+      if (localResponse.statusCode == 429) {
         localResponse = Response(
           statusCode: localResponse.statusCode,
           body: localResponse.body,
-          statusText: 'something_went_wrong'.tr,
+          statusText: 'too_many_requests'.tr,
         );
+      }
+      // Prefer RFC 7807 `title`/`detail` when present (additive backend fields); fall back to legacy format.
+      else if (localResponse.statusCode != 429) {
+        final title = localResponse.body['title'];
+        final detail = localResponse.body['detail'];
+        if (title != null) {
+          final text = (detail != null && detail.toString().isNotEmpty) ? detail.toString() : title.toString();
+          localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: text);
+        } else if(localResponse.body.toString().startsWith('{errors: [{code:')) {
+          ErrorResponse errorResponse = ErrorResponse.fromJson(localResponse.body);
+          localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: errorResponse.errors![0].message);
+        }else if(localResponse.body.toString().startsWith('{message')) {
+          localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: localResponse.body['message']);
+        } else {
+          // Generic error message for other non-200 responses
+          localResponse = Response(
+            statusCode: localResponse.statusCode,
+            body: localResponse.body,
+            statusText: 'something_went_wrong'.tr,
+          );
+        }
       }
     }else if(localResponse.statusCode != 200 && localResponse.body == null) {
       localResponse = Response(statusCode: 0, statusText: noInternetMessage);

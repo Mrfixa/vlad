@@ -22,6 +22,7 @@ class TripScreen extends StatefulWidget {
 class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateMixin{
   late TabController tabController;
   final ScrollController scrollController = ScrollController();
+  final TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
@@ -40,6 +41,7 @@ class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateM
   void dispose() {
     tabController.dispose();
     scrollController.dispose();
+    searchController.dispose();
     super.dispose();
   }
 
@@ -55,6 +57,38 @@ class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateM
               padding: const EdgeInsets.all(Dimensions.paddingSizeDefault),
               child: GetBuilder<TripController>(builder: (tripController) {
                 return Column(children: [
+                  // GAP-020: free-text search bar
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: Dimensions.paddingSizeSmall),
+                    child: TextField(
+                      controller: searchController,
+                      onChanged: (value) {
+                        tripController.searchQuery = value;
+                        tripController.update();
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'search_trips'.tr,
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  searchController.clear();
+                                  tripController.searchQuery = '';
+                                  tripController.update();
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: Theme.of(context).cardColor,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(Dimensions.radiusDefault),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      ),
+                    ),
+                  ),
                   TabBar(
                     controller: tabController,
                     unselectedLabelColor: Colors.grey,
@@ -95,24 +129,11 @@ class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateM
   }
 
   Widget tabBarBodyWidget (TripController tripController, String filter){
-    // GAP-018: Filter trips by status based on selected tab
-    final filteredTrips = tripController.tripModel?.data?.where((trip) {
-      switch (filter) {
-        case 'ongoing':
-          return trip.currentStatus == 'accepted' || trip.currentStatus == 'started';
-        case 'cancelled':
-          return trip.currentStatus == 'cancelled';
-        case 'completed':
-          return trip.currentStatus == 'completed';
-        case 'returned':
-          return trip.currentStatus == 'returned';
-        default: // 'all'
-          return true;
-      }
-    }).toList() ?? [];
+    // GAP-018/GAP-020: uses controller.filteredTrips (status + search)
+    final trips = tripController.filteredTrips;
 
     if (tripController.tripModel != null) {
-      if (filteredTrips.isNotEmpty) {
+      if (trips.isNotEmpty) {
         return RefreshIndicator(
           onRefresh: () => Get.find<TripController>().getTripList(1),
           child: SingleChildScrollView(
@@ -120,7 +141,7 @@ class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateM
             physics: const AlwaysScrollableScrollPhysics(),
             child: PaginatedListWidget(
               scrollController: scrollController,
-              totalSize: filteredTrips.length,
+              totalSize: trips.length,
               offset: null,
               onPaginate: (int? offset) async {
                 await tripController.getTripList(offset ?? 1);
@@ -128,12 +149,12 @@ class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateM
               itemView: Padding(
                 padding: const EdgeInsets.only(bottom: 70.0),
                 child: ListView.separated(
-                  itemCount: filteredTrips.length,
+                  itemCount: trips.length,
                   padding: const EdgeInsets.all(0),
                   physics: const NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
                   itemBuilder: (BuildContext context, int index) {
-                    return TripItemView(tripDetails: filteredTrips[index]);
+                    return TripItemView(tripDetails: trips[index]);
                   },
                   separatorBuilder: (BuildContext context, int index) => Divider(color: Theme.of(context).highlightColor.withValues(alpha:0.15)),
                 ),
@@ -148,3 +169,4 @@ class _TripScreenState extends State<TripScreen> with SingleTickerProviderStateM
     return const NotificationShimmer();
   }
 }
+

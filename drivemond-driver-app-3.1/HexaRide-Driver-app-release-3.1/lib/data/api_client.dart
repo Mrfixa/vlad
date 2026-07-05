@@ -249,17 +249,27 @@ class ApiClient extends GetxService {
       headers: response.headers, statusCode: response.statusCode, statusText: response.reasonPhrase,
     );
     if(localResponse.statusCode != 200 && localResponse.body != null && localResponse.body is !String) {
+      // S2: Handle 429 Too Many Requests specifically
+      if (localResponse.statusCode == 429) {
+        localResponse = Response(
+          statusCode: localResponse.statusCode,
+          body: localResponse.body,
+          statusText: 'too_many_requests'.tr,
+        );
+      }
       // Prefer RFC 7807 `title`/`detail` when present (additive backend fields); fall back to legacy format.
-      final title = localResponse.body['title'];
-      final detail = localResponse.body['detail'];
-      if (title != null) {
-        final text = (detail != null && detail.toString().isNotEmpty) ? detail.toString() : title.toString();
-        localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: text);
-      } else if(localResponse.body.toString().startsWith('{errors: [{code:')) {
-        ErrorResponse errorResponse = ErrorResponse.fromJson(localResponse.body);
-        localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: errorResponse.errors![0].message);
-      }else if(localResponse.body.toString().startsWith('{message')) {
-        localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: localResponse.body['message']);
+      else if (localResponse.statusCode != 429) {
+        final title = localResponse.body['title'];
+        final detail = localResponse.body['detail'];
+        if (title != null) {
+          final text = (detail != null && detail.toString().isNotEmpty) ? detail.toString() : title.toString();
+          localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: text);
+        } else if(localResponse.body.toString().startsWith('{errors: [{code:')) {
+          ErrorResponse errorResponse = ErrorResponse.fromJson(localResponse.body);
+          localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: errorResponse.errors![0].message);
+        }else if(localResponse.body.toString().startsWith('{message')) {
+          localResponse = Response(statusCode: localResponse.statusCode, body: localResponse.body, statusText: localResponse.body['message']);
+        }
       }
     }else if(localResponse.statusCode != 200 && localResponse.body == null) {
       localResponse = Response(statusCode: 0, statusText: noInternetMessage);

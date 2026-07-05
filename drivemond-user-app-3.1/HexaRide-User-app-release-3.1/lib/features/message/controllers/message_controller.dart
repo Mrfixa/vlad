@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:dart_pusher_channels/dart_pusher_channels.dart';
@@ -56,6 +57,10 @@ class MessageController extends GetxController implements GetxService{
     _isOtherUserTyping = value;
     update();
   }
+
+  // GOJEK-GRADE FIX: Track stream subscriptions for proper cleanup
+  StreamSubscription? _martChatSubscription;
+  StreamSubscription? _rideChatSubscription;
 
 
 
@@ -309,7 +314,9 @@ class MessageController extends GetxController implements GetxService{
             ));
         if (martChannel != null && martChannel!.currentStatus == null) {
           martChannel!.subscribe();
-          martChannel!.bind("customer-mart-chat.$orderId").listen((event) {
+          // GOJEK-GRADE FIX: Track subscription for cleanup
+          _martChatSubscription?.cancel();
+          _martChatSubscription = martChannel!.bind("customer-mart-chat.$orderId").listen((event) {
             if (event.data == null) return;
             try {
               final data = jsonDecode(event.data!) as Map<String, dynamic>;
@@ -411,7 +418,9 @@ class MessageController extends GetxController implements GetxService{
 
         if(channel != null && channel!.currentStatus == null){
           channel!.subscribe();
-          channel!.bind("customer-ride-chat.$id").listen((event) {
+          // GOJEK-GRADE FIX: Track subscription for cleanup
+          _rideChatSubscription?.cancel();
+          _rideChatSubscription = channel!.bind("customer-ride-chat.$id").listen((event) {
             if (event.data == null) return;
             try {
               final data = jsonDecode(event.data!) as Map<String, dynamic>;
@@ -435,6 +444,9 @@ class MessageController extends GetxController implements GetxService{
   /// screen. MessageController is a long-lived lazyPut singleton, so onClose does
   /// not fire on normal navigation — call this from the screen's dispose().
   void leaveConversation() {
+    // GOJEK-GRADE FIX: Cancel subscriptions before unsubscribing
+    _martChatSubscription?.cancel();
+    _rideChatSubscription?.cancel();
     try { channel?.unsubscribe(); } catch (_) {}
     try { martChannel?.unsubscribe(); } catch (_) {}
     _subscribedRideChannelName = '';
@@ -444,6 +456,9 @@ class MessageController extends GetxController implements GetxService{
 
   @override
   void onClose() {
+    // GOJEK-GRADE FIX: Cancel all subscriptions
+    _martChatSubscription?.cancel();
+    _rideChatSubscription?.cancel();
     try { channel?.unsubscribe(); } catch (_) {}
     try { martChannel?.unsubscribe(); } catch (_) {}
     super.onClose();

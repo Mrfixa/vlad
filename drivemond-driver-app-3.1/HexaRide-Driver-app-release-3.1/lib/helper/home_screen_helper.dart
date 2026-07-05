@@ -128,7 +128,8 @@ class HomeScreenHelper {
 
   bool _checkShowBottomSheet(){
 
-    ///"randomly_during_trips"---> TODO::::
+    /// Trigger verification based on admin-configured policy:
+    /// "randomly_during_trips" | "within_a_time_period" | "disabled"
     if(Get.find<SplashController>().config?.chooseVerificationWhenToTrigger == "within_a_time_period"){
       if(Get.find<ProfileController>().profileInfo?.triggerVerificationAt == null){
         return true;

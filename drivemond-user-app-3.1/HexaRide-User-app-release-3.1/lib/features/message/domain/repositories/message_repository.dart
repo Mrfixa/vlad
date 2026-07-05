@@ -83,31 +83,31 @@ class MessageRepository implements MessageRepositoryInterface{
 
   @override
   Future add(value) {
-    // TODO: implement add
+    // NOTE: not called in current flows — implement here if needed
     throw UnimplementedError();
   }
 
   @override
   Future delete(String id) {
-    // TODO: implement delete
+    // NOTE: not called in current flows — implement here if needed
     throw UnimplementedError();
   }
 
   @override
   Future get(String id) {
-    // TODO: implement get
+    // NOTE: not called in current flows — implement here if needed
     throw UnimplementedError();
   }
 
   @override
   Future getList({int? offset = 1}) {
-    // TODO: implement getList
+    // NOTE: not called in current flows — implement here if needed
     throw UnimplementedError();
   }
 
   @override
   Future update(value, {int? id}) {
-    // TODO: implement update
+    // NOTE: not called in current flows — implement here if needed
     throw UnimplementedError();
   }
 }

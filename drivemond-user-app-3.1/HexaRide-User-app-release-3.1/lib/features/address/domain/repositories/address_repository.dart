@@ -54,7 +54,7 @@ class AddressRepository implements AddressRepositoryInterface{
 
   @override
   Future get(String id) {
-    // TODO: implement get
+    // NOTE: not called in current flows — implement here if needed
     throw UnimplementedError();
   }
 

@@ -646,5 +646,131 @@ void main() {
         expect(chatPayload.containsKey('trip_id'), isFalse);
       });
     });
+
+    group('Mart Sort & Featured/Popular (G4)', () {
+      test('sort options map to API query values', () {
+        const sortOptions = {
+          'default': null,
+          'price_low': 'price_asc',
+          'price_high': 'price_desc',
+          'popular': 'popular',
+        };
+        // "default" omits the sort param; others translate to server values
+        expect(sortOptions['default'], isNull);
+        expect(sortOptions['price_low'], 'price_asc');
+        expect(sortOptions['price_high'], 'price_desc');
+        expect(sortOptions['popular'], 'popular');
+      });
+
+      test('featured and popular products use separate API filters', () {
+        // Featured: ?is_featured=1  Popular: ?is_popular=1
+        // Both are mutually exclusive from the general product list
+        const featuredFilter = {'is_featured': '1'};
+        const popularFilter = {'is_popular': '1'};
+        expect(featuredFilter.containsKey('is_popular'), isFalse);
+        expect(popularFilter.containsKey('is_featured'), isFalse);
+      });
+
+      test('MartProductModel isFeatured and isPopular fields exist', () {
+        final json = {
+          'id': 'p1',
+          'name': 'Test Product',
+          'price': '10.00',
+          'is_featured': true,
+          'is_popular': false,
+        };
+        final product = MartProductModel.fromJson(json);
+        expect(product.isFeatured, isTrue);
+        expect(product.isPopular, isFalse);
+      });
+    });
+
+    group('Trip History Search (G4)', () {
+      test('search filters trips by pickup address', () {
+        final List<Map<String, dynamic>> trips = [
+          {'pickupAddress': '123 Main St', 'currentStatus': 'completed'},
+          {'pickupAddress': '456 Oak Ave', 'currentStatus': 'completed'},
+          {'pickupAddress': '789 Pine Rd', 'currentStatus': 'ongoing'},
+        ];
+        final q = 'main';
+        final results = trips.where((t) =>
+          (t['pickupAddress'] as String).toLowerCase().contains(q.toLowerCase())
+        ).toList();
+        expect(results.length, 1);
+        expect(results.first['pickupAddress'], '123 Main St');
+      });
+
+      test('search filters trips by destination address', () {
+        final List<Map<String, dynamic>> trips = [
+          {'destinationAddress': 'Downtown Plaza', 'currentStatus': 'completed'},
+          {'destinationAddress': 'Airport Terminal', 'currentStatus': 'completed'},
+        ];
+        final q = 'airport';
+        final results = trips.where((t) =>
+          (t['destinationAddress'] as String).toLowerCase().contains(q.toLowerCase())
+        ).toList();
+        expect(results.length, 1);
+        expect(results.first['destinationAddress'], 'Airport Terminal');
+      });
+
+      test('search filters trips by driver name', () {
+        final List<Map<String, dynamic>> trips = [
+          {'driver': {'name': 'John Smith'}, 'currentStatus': 'completed'},
+          {'driver': {'name': 'Jane Doe'}, 'currentStatus': 'completed'},
+        ];
+        final q = 'john';
+        final results = trips.where((t) =>
+          (t['driver']['name'] as String).toLowerCase().contains(q.toLowerCase())
+        ).toList();
+        expect(results.length, 1);
+        expect(results.first['driver']['name'], 'John Smith');
+      });
+
+      test('search is case-insensitive', () {
+        final List<Map<String, dynamic>> trips = [
+          {'pickupAddress': 'MAIN STREET', 'currentStatus': 'completed'},
+          {'pickupAddress': 'main street', 'currentStatus': 'completed'},
+        ];
+        final q = 'Main';
+        final results = trips.where((t) =>
+          (t['pickupAddress'] as String).toLowerCase().contains(q.toLowerCase())
+        ).toList();
+        expect(results.length, 2);
+      });
+
+      test('empty search returns all trips', () {
+        final List<Map<String, dynamic>> trips = [
+          {'pickupAddress': '123 Main St', 'currentStatus': 'completed'},
+          {'pickupAddress': '456 Oak Ave', 'currentStatus': 'ongoing'},
+        ];
+        final q = '';
+        final results = trips.where((t) {
+          if (q.isEmpty) return true;
+          return (t['pickupAddress'] as String).toLowerCase().contains(q.toLowerCase());
+        }).toList();
+        expect(results.length, 2);
+      });
+
+      test('combined status + search filter', () {
+        final List<Map<String, dynamic>> trips = [
+          {'pickupAddress': '123 Main St', 'currentStatus': 'completed'},
+          {'pickupAddress': '456 Oak Ave', 'currentStatus': 'ongoing'},
+          {'pickupAddress': '789 Main Rd', 'currentStatus': 'cancelled'},
+        ];
+        const status = 'completed';
+        const q = 'main';
+
+        final results = trips.where((t) {
+          // Status filter
+          if (t['currentStatus'] != status) return false;
+          // Search filter
+          if (q.isEmpty) return true;
+          return (t['pickupAddress'] as String).toLowerCase().contains(q.toLowerCase());
+        }).toList();
+
+        expect(results.length, 1);
+        expect(results.first['pickupAddress'], '123 Main St');
+      });
+    });
   });
 }

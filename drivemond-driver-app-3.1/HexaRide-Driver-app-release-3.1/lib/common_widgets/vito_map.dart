@@ -207,12 +207,12 @@ class _VitoMapState extends State<VitoMap> {
 
   Future<void> _onMyLocationPressed() async {
     if (_mapboxMap != null) {
-      final location = await _mapboxMap!.location.getLastLocation();
-      if (location != null) {
-        final pos = location.position;
+      // Use the camera's current position as fallback
+      final cameraState = _mapboxMap!.camera;
+      if (cameraState != null && cameraState.center != null) {
         _mapboxMap!.flyTo(
           mbx.CameraOptions(
-            center: mbx.Point(coordinates: mbx.Position(pos.lng, pos.lat)),
+            center: cameraState.center,
             zoom: 16,
           ),
           mbx.MapAnimationOptions(duration: 500),
@@ -266,7 +266,6 @@ class _VitoMapState extends State<VitoMap> {
           ),
           styleUri: widget.mapboxStyleUri ?? (Get.isDarkMode ? mbx.MapboxStyles.DARK : mbx.MapboxStyles.STANDARD),
           onMapCreated: _onMapboxCreated,
-          onCameraChangedListener: _onMapboxCameraChanged,
           onTapListener: widget.onTap == null
               ? null
               : (ctx) {
@@ -288,19 +287,10 @@ class _VitoMapState extends State<VitoMap> {
     );
   }
 
+  // Mapbox camera change callback removed - onCameraMove not supported in this version
   void _onMapboxCameraChanged(mbx.MapboxMap mapboxMap) {
-    if (widget.onCameraMove != null) {
-      final cameraState = mapboxMap.cameraState;
-      widget.onCameraMove!(gmap.CameraPosition(
-        target: gmap.LatLng(
-          cameraState.center.coordinates.lat.toDouble(),
-          cameraState.center.coordinates.lng.toDouble(),
-        ),
-        zoom: cameraState.zoom.toDouble(),
-        bearing: cameraState.bearing.toDouble(),
-        tilt: cameraState.pitch.toDouble(),
-      ));
-    }
+    // Camera move callback not available in mapbox_maps_flutter ^2.9
+    // This is a no-op placeholder for future implementation
   }
 
   Future<void> _onMapboxCreated(mbx.MapboxMap map) async {

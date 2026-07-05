@@ -23,6 +23,8 @@ class TripDetails {
   Vehicle? vehicle;
   VehicleCategory? vehicleCategory;
   double? estimatedFare;
+
+  String? get vehicleCategoryName => vehicleCategory?.name;
   String? orgEstFare;
   String? estimatedTime;
   double? estimatedDistance;
@@ -268,6 +270,8 @@ class Driver {
   String? identificationType;
   String? profileImage;
   Vehicle? vehicle;
+
+  String? get name => [firstName, lastName].where((e) => e != null && e.isNotEmpty).join(' ');
 
   Driver(
       {this.id,

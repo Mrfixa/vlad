@@ -25,6 +25,7 @@ class MartController extends GetxController implements GetxService {
   List<MartProductModel> products = [];
   List<MartCategoryModel> categories = [];
   String selectedCategory = 'all';
+  String selectedSort = 'default';
 
   List<MartOrderModel> orders = [];
   MartOrderModel? currentOrder;
@@ -194,10 +195,14 @@ class MartController extends GetxController implements GetxService {
     return const [];
   }
 
-  Future<void> getProducts({String? category, String? search, bool notify = true}) async {
+  Future<void> getProducts({String? category, String? search, String? sort, bool notify = true}) async {
     isLoading = true;
     if (notify) update();
-    final response = await martServiceInterface.getProducts(category: category ?? selectedCategory, search: search);
+    final response = await martServiceInterface.getProducts(
+      category: category ?? selectedCategory,
+      search: search,
+      sort: sort ?? selectedSort,
+    );
     if (response.statusCode == 200) {
       products = _extractList(response.body)
           .whereType<Map<String, dynamic>>()
@@ -225,6 +230,12 @@ class MartController extends GetxController implements GetxService {
     selectedCategory = category;
     update();
     getProducts(category: category);
+  }
+
+  void setSort(String sort) {
+    selectedSort = sort;
+    update();
+    getProducts();
   }
 
   Future<MartProductModel?> getProductDetails(String id) async {

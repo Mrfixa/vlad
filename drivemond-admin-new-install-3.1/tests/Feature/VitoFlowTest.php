@@ -1000,6 +1000,71 @@ class VitoFlowTest extends TestCase
         ])->assertStatus(422);
     }
 
+    // ========================================================================
+    // Legacy auth route tests
+    // ========================================================================
+
+    public function test_legacy_forget_password_by_phone(): void
+    {
+        $user = $this->createUser('customer', [
+            'phone' => '+15550001111',
+            'pin_hash' => Hash::make('123456'),
+        ]);
+
+        // unknown phone_or_email → 404
+        $this->postJson('/api/customer/auth/forget-password', [
+            'phone_or_email' => '+19999999999',
+        ])->assertStatus(404);
+
+        // known phone → 200 (OTP sent via mock SMS; env returns 000000 in test)
+        $this->postJson('/api/customer/auth/forget-password', [
+            'phone_or_email' => '+15550001111',
+        ])->assertOk();
+
+        // invalid phone_or_email format → 400
+        $this->postJson('/api/customer/auth/forget-password', [
+            'phone_or_email' => 'xx',
+        ])->assertStatus(400);
+    }
+
+    public function test_legacy_social_login_rejects_invalid_provider(): void
+    {
+        // social-login is unauthenticated; invalid/missing provider → 422
+        $this->postJson('/api/customer/auth/social-login', [
+            'provider' => 'unknown_provider',
+            'unique_id' => 'abc123',
+        ])->assertStatus(422);
+
+        // valid provider but missing token → 422
+        $this->postJson('/api/customer/auth/social-login', [
+            'provider' => 'google',
+        ])->assertStatus(422);
+    }
+
+    public function test_legacy_external_mart_registration_requires_valid_token(): void
+    {
+        // valid token + phone → creates customer
+        $token = Str::uuid()->toString();
+        DB::table('qr_tokens')->insert([
+            'token' => $token, 'type' => 'customer', 'status' => 'active',
+            'uses_remaining' => 10, 'expires_at' => now()->addDays(7),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->postJson('/api/customer/auth/external-registration', [
+            'token' => $token,
+            'phone' => '+15550002222',
+            'password' => 'PassWord123!',
+        ])->assertOk()->assertJsonStructure(['data' => ['id', 'token']]);
+
+        // invalid/expired token → 403
+        $this->postJson('/api/customer/auth/external-registration', [
+            'token' => 'not-a-real-token',
+            'phone' => '+15550003333',
+            'password' => 'PassWord123!',
+        ])->assertStatus(403);
+    }
+
     public function test_pin_login_trims_username(): void
     {
         $this->createUser('customer', [

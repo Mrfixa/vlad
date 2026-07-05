@@ -189,9 +189,6 @@ class AuthController extends Controller
                     'is_used' => true
                 ];
                 $referralDriver = $this->referralDriverService->create($referralDriverData);
-
-
-                #TODO
                 if ($referralDriver?->ref_by_earning_amount && $referralDriver?->ref_by_earning_amount > 0) {
                     $this->driverReferralEarningTransaction($referralUser, $referralDriver?->ref_by_earning_amount);
                     $push = getNotification('referral_reward_received');
@@ -290,9 +287,6 @@ class AuthController extends Controller
                     'is_used' => true
                 ];
                 $referralDriver = $this->referralDriverService->create($referralDriverData);
-
-
-                #TODO
                 if ($referralDriver?->ref_by_earning_amount && $referralDriver?->ref_by_earning_amount > 0) {
                     $this->driverReferralEarningTransaction($referralUser, $referralDriver?->ref_by_earning_amount);
                     $push = getNotification('referral_reward_received');
@@ -384,9 +378,6 @@ class AuthController extends Controller
                     'is_used' => true
                 ];
                 $referralDriver = $this->referralDriverService->create($referralDriverData);
-
-
-                #TODO
                 if ($referralDriver?->ref_by_earning_amount && $referralDriver?->ref_by_earning_amount > 0) {
                     $this->driverReferralEarningTransaction($referralUser, $referralDriver?->ref_by_earning_amount);
                     $push = getNotification('referral_reward_received');

@@ -75,7 +75,6 @@ class TripFareSettingController extends BaseController
 
     public function updateCancellationReason($id, CancellationReasonStoreOrUpdateRequest $request)
     {
-        #TODO
         $this->authorize('business_edit');
         $this->cancellationReasonService->update(id: $id, data: $request->validated());
         Toastr::success(translate('Cancellation message updated successfully'));

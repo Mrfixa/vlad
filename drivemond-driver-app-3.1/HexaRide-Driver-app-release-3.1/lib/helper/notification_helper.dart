@@ -38,6 +38,7 @@ import 'package:ride_sharing_user_app/features/profile/controllers/profile_contr
 import 'package:ride_sharing_user_app/features/ride/controllers/ride_controller.dart';
 import 'package:ride_sharing_user_app/features/splash/controllers/splash_controller.dart';
 import 'package:ride_sharing_user_app/features/trip/screens/payment_received_screen.dart';
+import 'package:ride_sharing_user_app/features/mart/screens/mart_delivery_screen.dart';
 import 'package:ride_sharing_user_app/features/trip/screens/review_this_customer_screen.dart';
 import 'package:ride_sharing_user_app/features/mart/screens/mart_pending_orders_screen.dart';
 
@@ -52,19 +53,22 @@ class NotificationHelper {
         if (kDebugMode) {
           print('Notification response ==> ${response.payload.toString()}');
         }
-        // TODO: Route
         try {
           if (response.payload != null && response.payload!.isNotEmpty) {
+            final orderId = response.payload!;
+            // Route mart order notifications to the delivery screen.
             if (kDebugMode) {
               print('Notification response ==> ${response.payload.toString()}');
             }
+            Get.offAll(() => const DashboardScreen());
+            Get.find<BottomMenuController>().setTabIndex(2);
+            Get.to(() => MartDeliveryScreen(orderId: orderId));
           }
         } catch (e) {
           if (kDebugMode) {
             print('Notification response ==> ${response.payload.toString()}');
           }
         }
-        return;
       },
 
       onDidReceiveBackgroundNotificationResponse: myBackgroundMessageReceiver,

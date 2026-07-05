@@ -153,9 +153,14 @@ jobs:
           MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
         run: |
           flutter build apk --debug \
+            --dart-define=BASE_URL=${{ vars.BASE_URL || 'https://dacatlon.store' }} \
             --dart-define=MAPS_API_KEY=${{ secrets.MAPS_API_KEY }} \
             --dart-define=STRIPE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
-            --dart-define=MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}
+            --dart-define=MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }} \
+            --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY || '' }} \
+            --dart-define=FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID || '' }} \
+            --dart-define=FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID || '' }} \
+            --dart-define=FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID || '' }}
         continue-on-error: true
 
       - name: Upload APK artifact
@@ -218,9 +223,14 @@ jobs:
           MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
         run: |
           flutter build apk --debug \
+            --dart-define=BASE_URL=${{ vars.BASE_URL || 'https://dacatlon.store' }} \
             --dart-define=MAPS_API_KEY=${{ secrets.MAPS_API_KEY }} \
             --dart-define=STRIPE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }} \
-            --dart-define=MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}
+            --dart-define=MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }} \
+            --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY || '' }} \
+            --dart-define=FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID || '' }} \
+            --dart-define=FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID || '' }} \
+            --dart-define=FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID || '' }}
         continue-on-error: true
 
       - name: Upload APK artifact

@@ -58,12 +58,15 @@ class UserLocationSocketHandler implements MessageComponentInterface
 
     function onClose(ConnectionInterface $conn)
     {
-        // TODO: Implement onClose() method.
+        \Log::debug('[WebSocket] UserLocation connection closed', ['socket_id' => $conn->socketId ?? null]);
     }
 
     function onError(ConnectionInterface $conn, \Exception $e)
     {
-        // TODO: Implement onError() method.
+        \Log::error('[WebSocket] UserLocation error', [
+            'socket_id' => $conn->socketId ?? null,
+            'exception' => $e->getMessage(),
+        ]);
     }
 
     protected function verifyAppKey(ConnectionInterface $connection)

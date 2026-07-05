@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:dart_pusher_channels/dart_pusher_channels.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:ride_sharing_user_app/features/auth/controllers/auth_controller.dart';
 import 'package:ride_sharing_user_app/features/home/screens/ride_list_screen.dart';
@@ -20,6 +21,25 @@ import '../features/dashboard/screens/dashboard_screen.dart';
 class PusherHelper{
 
   static PusherChannelsClient?  pusherClient;
+  
+  // GOJEK-GRADE FIX: Track all stream subscriptions for proper cleanup
+  static final Map<String, StreamSubscription> _eventSubscriptions = {};
+  
+  /// GOJEK-GRADE FIX: Cancel all active subscriptions to prevent memory leaks
+  static void dispose() {
+    for (final sub in _eventSubscriptions.values) {
+      sub.cancel();
+    }
+    _eventSubscriptions.clear();
+  }
+  
+  /// GOJEK-GRADE FIX: Unsubscribe from all channels and cancel subscriptions
+  static void unsubscribeAll() {
+    for (final key in _eventSubscriptions.keys.toList()) {
+      _eventSubscriptions[key]?.cancel();
+      _eventSubscriptions.remove(key);
+    }
+  }
 
   static void initializePusher() async{
     final config = Get.find<SplashController>().config;
@@ -44,7 +64,8 @@ class PusherHelper{
     );
 
      await pusherClient?.connect();
-    } catch (_) {
+    } catch (e, s) {
+      debugPrint('PusherHelper.initializePusher error: $e\n$s');
       Get.find<SplashController>().setPusherStatus('Disconnected');
       return;
     }
@@ -64,7 +85,15 @@ class PusherHelper{
 
 
   late PrivateChannel driverTripSubscribe;
+  String? _currentTripId;
   void driverTripRequestSubscribe(String id){
+    // GOJEK-GRADE FIX: Cancel previous subscription before creating new one
+    _eventSubscriptions.remove('driver-trip-request');
+    if (_currentTripId != null) {
+      driverTripSubscribe.unsubscribe();
+    }
+    _currentTripId = id;
+    
     if (Get.find<SplashController>().pusherConnectionStatus == 'Connected' && pusherClient != null){
       driverTripSubscribe = pusherClient!.privateChannel("private-customer-trip-request.$id", authorizationDelegate:
       EndpointAuthorizableChannelTokenAuthorizationDelegate.forPrivateChannel(
@@ -79,12 +108,15 @@ class PusherHelper{
 
       if(driverTripSubscribe.currentStatus == null){
         driverTripSubscribe.subscribeIfNotUnsubscribed();
-        driverTripSubscribe.bind("customer-trip-request.$id").listen((event) {
+        // GOJEK-GRADE FIX: Track subscription for cleanup
+        _eventSubscriptions['driver-trip-request'] = driverTripSubscribe.bind("customer-trip-request.$id").listen((event) {
           Get.find<RideController>().ongoingTripList().then((value){
             if((Get.find<RideController>().ongoingTrip ?? []).isEmpty){
               try {
                 AudioPlayer().play(AssetSource('notification.wav'));
-              } catch (_) {}
+              } catch (e) {
+                debugPrint('PusherHelper: failed to play notification sound: $e');
+              }
               Get.find<RideController>().getPendingRideRequestList(1);
               Get.find<RideController>().setRideId(jsonDecode(event.data!)['trip_id']);
               Get.find<RideController>().getRideDetailBeforeAccept(jsonDecode(event.data!)['trip_id']).then((value){
@@ -292,13 +324,13 @@ class PusherHelper{
 
   void pusherDisconnectPusher(){
     // D5: unsubscribe all active channels before disconnecting
-    try { driverTripSubscribe.unsubscribe(); } catch (_) {}
-    try { customerInitialTripCancelChannel.unsubscribe(); } catch (_) {}
-    try { anotherDriverAcceptedTripChannel.unsubscribe(); } catch (_) {}
-    try { _tripCancelAfterOngoingSub?.cancel(); } catch (_) {}
-    try { tripCancelAfterOngoingChannel?.unsubscribe(); } catch (_) {}
-    try { _tripPaymentSuccessfulSub?.cancel(); } catch (_) {}
-    try { tripPaymentSuccessfulChannel?.unsubscribe(); } catch (_) {}
+    try { driverTripSubscribe.unsubscribe(); } catch (e) { debugPrint('pusherDisconnect: $e'); }
+    try { customerInitialTripCancelChannel.unsubscribe(); } catch (e) { debugPrint('pusherDisconnect: $e'); }
+    try { anotherDriverAcceptedTripChannel.unsubscribe(); } catch (e) { debugPrint('pusherDisconnect: $e'); }
+    try { _tripCancelAfterOngoingSub?.cancel(); } catch (e) { debugPrint('pusherDisconnect: $e'); }
+    try { tripCancelAfterOngoingChannel?.unsubscribe(); } catch (e) { debugPrint('pusherDisconnect: $e'); }
+    try { _tripPaymentSuccessfulSub?.cancel(); } catch (e) { debugPrint('pusherDisconnect: $e'); }
+    try { tripPaymentSuccessfulChannel?.unsubscribe(); } catch (e) { debugPrint('pusherDisconnect: $e'); }
     pusherClient?.disconnect();
     PusherHelper.pusherClient = null;
   }

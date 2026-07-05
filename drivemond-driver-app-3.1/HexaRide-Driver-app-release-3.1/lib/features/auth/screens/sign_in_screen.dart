@@ -50,6 +50,12 @@ class _SignInScreenState extends State<SignInScreen> {
         Get.find<AuthController>().setRememberMe();
       }
     });
+    // Auto-focus the PIN field if username is pre-filled (e.g., remember-me)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (usernameController.text.isNotEmpty && pinController.text.isEmpty) {
+        pinNode.requestFocus();
+      }
+    });
   }
 
   @override
