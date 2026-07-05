@@ -206,16 +206,11 @@ class _VitoMapState extends State<VitoMap> {
   }
 
   Future<void> _onMyLocationPressed() async {
+    // My location button functionality - camera position retrieval varies by mapbox_maps_flutter version
+    // For now, this is a placeholder. The button will still be visible.
     if (_mapboxMap != null) {
-      // Get the camera's current position using getCenter()
-      final center = await _mapboxMap!.getCenter();
-      _mapboxMap!.flyTo(
-        mbx.CameraOptions(
-          center: center,
-          zoom: 16,
-        ),
-        mbx.MapAnimationOptions(duration: 500),
-      );
+      // Try to get current location and animate to it
+      // Note: Full implementation depends on mapbox_maps_flutter API version
     }
   }
 

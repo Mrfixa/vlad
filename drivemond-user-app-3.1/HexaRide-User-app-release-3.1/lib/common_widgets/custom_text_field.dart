@@ -23,6 +23,7 @@ class CustomTextField extends StatefulWidget {
   final double borderRadius;
   final String? prefixIcon;
   final String? suffixIcon;
+  final Widget? suffixIconWidget;
   final bool showBorder;
   final String? countryDialCode;
   final double prefixHeight;
@@ -71,6 +72,7 @@ class CustomTextField extends StatefulWidget {
     this.prefix=true,
     this.suffix=true,
     this.suffixIcon,
+    this.suffixIconWidget,
     this.onPressedSuffix,
     this.textColor,
     this.errorText,
@@ -218,7 +220,9 @@ class _CustomTextFieldState extends State<CustomTextField> {
           )),
         )
             : null,
-        suffixIcon: widget.suffixIcon != null
+        suffixIcon: widget.suffixIconWidget != null
+            ? widget.suffixIconWidget
+            : widget.suffixIcon != null
             ? InkWell(
           onTap: widget.onPressedSuffix,
           child: Container(
