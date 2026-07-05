@@ -687,7 +687,7 @@ void main() {
 
     group('Trip History Search (G4)', () {
       test('search filters trips by pickup address', () {
-        final trips = [
+        final List<Map<String, dynamic>> trips = [
           {'pickupAddress': '123 Main St', 'currentStatus': 'completed'},
           {'pickupAddress': '456 Oak Ave', 'currentStatus': 'completed'},
           {'pickupAddress': '789 Pine Rd', 'currentStatus': 'ongoing'},
@@ -701,7 +701,7 @@ void main() {
       });
 
       test('search filters trips by destination address', () {
-        final trips = [
+        final List<Map<String, dynamic>> trips = [
           {'destinationAddress': 'Downtown Plaza', 'currentStatus': 'completed'},
           {'destinationAddress': 'Airport Terminal', 'currentStatus': 'completed'},
         ];
@@ -714,7 +714,7 @@ void main() {
       });
 
       test('search filters trips by driver name', () {
-        final trips = [
+        final List<Map<String, dynamic>> trips = [
           {'driver': {'name': 'John Smith'}, 'currentStatus': 'completed'},
           {'driver': {'name': 'Jane Doe'}, 'currentStatus': 'completed'},
         ];
@@ -727,7 +727,7 @@ void main() {
       });
 
       test('search is case-insensitive', () {
-        final trips = [
+        final List<Map<String, dynamic>> trips = [
           {'pickupAddress': 'MAIN STREET', 'currentStatus': 'completed'},
           {'pickupAddress': 'main street', 'currentStatus': 'completed'},
         ];
@@ -739,7 +739,7 @@ void main() {
       });
 
       test('empty search returns all trips', () {
-        final trips = [
+        final List<Map<String, dynamic>> trips = [
           {'pickupAddress': '123 Main St', 'currentStatus': 'completed'},
           {'pickupAddress': '456 Oak Ave', 'currentStatus': 'ongoing'},
         ];
@@ -752,7 +752,7 @@ void main() {
       });
 
       test('combined status + search filter', () {
-        final trips = [
+        final List<Map<String, dynamic>> trips = [
           {'pickupAddress': '123 Main St', 'currentStatus': 'completed'},
           {'pickupAddress': '456 Oak Ave', 'currentStatus': 'ongoing'},
           {'pickupAddress': '789 Main Rd', 'currentStatus': 'cancelled'},

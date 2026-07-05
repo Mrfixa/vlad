@@ -118,7 +118,6 @@ class PusherHelper {
   late PrivateChannel driverTripCompleted;
   late PrivateChannel driverPaymentReceived;
   late PrivateChannel martOrderStatus;
-  PrivateChannel? _currentRideChannel;
   PrivateChannel? _currentMartOrderChannel;
 
   void pusherDriverStatus(String tripId) async {
