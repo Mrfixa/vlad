@@ -1575,8 +1575,8 @@ class _DeliveryMapPickerState extends State<_DeliveryMapPicker> {
                 onCameraMove: (pos) {
                   if (mounted) {
                     setState(() {
-                      _lat = pos.center.latitude;
-                      _lng = pos.center.longitude;
+                      _lat = pos.target.latitude;
+                      _lng = pos.target.longitude;
                       // Clear text address — user can keep coords or fill in manually after
                       if (_address.isEmpty || _address == widget.initialAddress) {
                         _address = '';

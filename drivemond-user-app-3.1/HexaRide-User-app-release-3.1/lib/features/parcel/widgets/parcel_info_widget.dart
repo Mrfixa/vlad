@@ -231,7 +231,7 @@ class _ParcelInfoWidgetState extends State<ParcelInfoWidget> {
              borderRadius: Dimensions.radiusSmall,
              hintText: 'enter_parcel_weight'.tr,
              contentPadding: EdgeInsets.all(Dimensions.paddingSizeSmall),
-             keyboardNumber: true,
+             inputType: TextInputType.number,
              onTap: () => pc.focusOnBottomSheet(widget.expandableKey),
              suffixIcon: Padding(
                padding: const EdgeInsets.only(right: Dimensions.paddingSizeSmall),

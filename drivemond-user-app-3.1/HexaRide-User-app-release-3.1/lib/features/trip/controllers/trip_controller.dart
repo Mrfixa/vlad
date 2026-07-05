@@ -4,6 +4,7 @@ import 'package:ride_sharing_user_app/data/api_checker.dart';
 import 'package:ride_sharing_user_app/features/trip/domain/models/trip_cancelation_cause_list_model.dart';
 import 'package:ride_sharing_user_app/features/trip/domain/models/trip_model.dart';
 import 'package:ride_sharing_user_app/features/trip/domain/services/service_interface.dart';
+import 'package:ride_sharing_user_app/features/ride/domain/models/trip_details_model.dart';
 
 class TripController extends GetxController implements GetxService {
   final TripServiceInterface tripServiceInterface;

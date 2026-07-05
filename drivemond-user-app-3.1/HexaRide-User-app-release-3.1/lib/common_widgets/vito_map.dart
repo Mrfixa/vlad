@@ -207,17 +207,15 @@ class _VitoMapState extends State<VitoMap> {
 
   Future<void> _onMyLocationPressed() async {
     if (_mapboxMap != null) {
-      // Use the camera's current position as fallback
-      final cameraState = _mapboxMap!.camera;
-      if (cameraState != null && cameraState.center != null) {
-        _mapboxMap!.flyTo(
-          mbx.CameraOptions(
-            center: cameraState.center,
-            zoom: 16,
-          ),
-          mbx.MapAnimationOptions(duration: 500),
-        );
-      }
+      // Get the camera's current position using getCenter()
+      final center = await _mapboxMap!.getCenter();
+      _mapboxMap!.flyTo(
+        mbx.CameraOptions(
+          center: center,
+          zoom: 16,
+        ),
+        mbx.MapAnimationOptions(duration: 500),
+      );
     }
   }
 
