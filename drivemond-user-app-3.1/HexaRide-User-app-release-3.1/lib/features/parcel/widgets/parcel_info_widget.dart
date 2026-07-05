@@ -233,7 +233,7 @@ class _ParcelInfoWidgetState extends State<ParcelInfoWidget> {
              contentPadding: EdgeInsets.all(Dimensions.paddingSizeSmall),
              inputType: TextInputType.number,
              onTap: () => pc.focusOnBottomSheet(widget.expandableKey),
-             suffixIcon: Padding(
+             suffixIconWidget: Padding(
                padding: const EdgeInsets.only(right: Dimensions.paddingSizeSmall),
                child: Text('kg'.tr, style: textRegular.copyWith(color: Theme.of(context).hintColor)),
              ),
