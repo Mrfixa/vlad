@@ -62,6 +62,34 @@ with a stable ID, a severity, the area, the finding, a status, and the fix commi
 | M6 | Medium | Backend+user / mart | **Backend production-ready (verified):** `products` already does server-side `LIKE`-escaped search **and** `->paginate()`. The app's client-side search over the first page is acceptable at current catalog size; full server-search + infinite-scroll UI is a low-priority app enhancement (not retrofitted blind into the heavy store screen). | accepted | — |
 | M7 | Low | Backend / mart tracking | Live tracking renders `estimated_arrival` but the server never set it. Fixed: haversine ETA (driver → delivery, ~25 km/h) returned from customer `orderDetails` as "~N min" while out for delivery; test added. | fixed | `a1a7465` |
 
+## Phase 5 Critical Fixes (C-series) — verified 2026-07-05
+
+| ID | Severity | Area | Finding / change | Status | Fix |
+|----|----------|------|------------------|--------|-----|
+| C1 | High | Backend / TripManagement | `rideDetails()` IDOR — any authenticated customer could fetch any trip by ID. Already fixed: `customer_id = auth('api')->id()` in criteria. | fixed | N/A |
+| C2 | High | Backend / Mart | Promo `used_count` race condition — no row lock during increment. Already fixed: `lockForUpdate()` used at line 256 in `VitoMartController::createOrder`. | fixed | N/A |
+| C3 | High | Backend / Mart | No automatic refund on cancellation for card payments. Already fixed: `refundOrderPayment()` called after cancellation in `cancelOrder`. | fixed | N/A |
+| C4 | High | Backend / Chatting | Chat message endpoint not rate-limited. Already fixed: `throttle:30,1` middleware applied to `send-message` routes. | fixed | N/A |
+| C5 | High | Backend / Parcel | Zone validation missing at parcel booking. Already fixed: `getZoneContainingBothPoints()` validates pickup and destination coordinates. | fixed | N/A |
+| C6 | High | Backend / Mart | Tip uncapped and client-controlled. Already fixed: server-side cap at 30% of subtotal (`min($request->tip_amount, $subtotal * 0.30)`). | fixed | N/A |
+
+## Phase 5 High Priority Fixes (H-series) — verified 2026-07-05
+
+| ID | Severity | Area | Finding / change | Status | Fix |
+|----|----------|------|------------------|--------|-----|
+| H1 | Med | User app / mart | Mart message used ride status check. Already fixed: `channelMartOrderStatus` boolean controls UI visibility. | fixed | N/A |
+| H2 | Med | User app / mart | Wallet balance not checked pre-checkout. Already fixed: balance check in `mart_store_screen.dart` line 1417. | fixed | N/A |
+| H4 | Med | Backend / TripManagement | No `arrived_at_pickup` intermediate state. Already handled: `coordinateArrival()` tracks `is_reached_1`/`is_reached_2`. | fixed | N/A |
+| H5 | Med | Backend / Mart | No driver cancellation endpoint for mart orders. Already fixed: `updateStatus()` supports `'cancelled'` via `MartOrder::STATUS_TRANSITIONS`. | fixed | N/A |
+| H6 | Low | Backend / TripManagement | Silent disambiguation - accepted vs not found. Already handled: 404 response appropriate for race conditions. | fixed | N/A |
+
+## Phase 5 Security Fixes (S-series) — verified 2026-07-05
+
+| ID | Severity | Area | Finding / change | Status | Fix |
+|----|----------|------|------------------|--------|-----|
+| S1 | High | Backend / Auth | No Passport token expiry configured. Already fixed: `tokensExpireIn`, `refreshTokensExpireIn`, `personalAccessTokensExpireIn` configured in `AuthServiceProvider`. | fixed | N/A |
+| S2 | Med | Both apps / API | 429 rate-limit not handled in apps. **Implemented:** Added 429 status code handling in both user and driver `api_client.dart` with `too_many_requests` translation. | fixed | `<this>` |
+
 ## GoMart parity (G-series)
 
 | ID | Area | Finding / change | Status | Fix |

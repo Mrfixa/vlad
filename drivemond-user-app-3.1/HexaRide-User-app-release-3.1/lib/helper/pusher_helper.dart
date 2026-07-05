@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:dart_pusher_channels/dart_pusher_channels.dart';
 import 'package:get/get.dart';
@@ -17,6 +18,12 @@ import 'package:ride_sharing_user_app/util/app_constants.dart';
 
 class PusherHelper {
   static PusherChannelsClient?  pusherClient;
+  
+  // GOJEK-GRADE FIX: Track all stream subscriptions for proper cleanup
+  static final List<StreamSubscription> _activeSubscriptions = [];
+  
+  // Track all bound event handlers for cleanup
+  static final Map<String, StreamSubscription> _eventSubscriptions = {};
 
   /// Safely decode event data, returning null if parsing fails or data is null
   static Map<String, dynamic>? _safeDecodeData(String? data) {
@@ -27,6 +34,32 @@ class PusherHelper {
       return null;
     }
   }
+
+  /// GOJEK-GRADE FIX: Cancel all active subscriptions to prevent memory leaks
+  static void dispose() {
+    _cancelAllSubscriptions();
+  }
+
+  /// GOJEK-GRADE FIX: Unsubscribe from all ride channels
+  static void unsubscribeFromRideChannels() {
+    _cancelRideSubscriptions();
+  }
+  
+  /// GOJEK-GRADE FIX: Cancel ride-related subscriptions only
+  static void _cancelRideSubscriptions() {
+    // Cancel and remove ride event subscriptions
+    final rideEventKeys = _eventSubscriptions.keys
+        .where((k) => k.contains('trip') || k.contains('driver') || k.contains('payment'))
+        .toList();
+    for (final key in rideEventKeys) {
+      _eventSubscriptions[key]?.cancel();
+      _eventSubscriptions.remove(key);
+    }
+    _currentRideChannel?.unsubscribe();
+    _currentRideChannel = null;
+  }
+
+  static PrivateChannel? _currentRideChannel;
 
   static void initializePusher() async{
     final config = Get.find<ConfigController>().config;
@@ -67,6 +100,17 @@ class PusherHelper {
     });
 
   }
+  
+  static void _cancelAllSubscriptions() {
+    for (final sub in _activeSubscriptions) {
+      sub.cancel();
+    }
+    _activeSubscriptions.clear();
+    for (final sub in _eventSubscriptions.values) {
+      sub.cancel();
+    }
+    _eventSubscriptions.clear();
+  }
 
   late PrivateChannel pusherDriverAccepted;
   late PrivateChannel driverTripStarted;
@@ -79,7 +123,9 @@ class PusherHelper {
 
   void pusherDriverStatus(String tripId) async {
     if (pusherClient == null) return;
-    _currentRideChannel?.unsubscribe();
+    
+    // GOJEK-GRADE FIX: Cancel previous ride subscriptions before creating new ones
+    _cancelRideSubscriptions();
 
     if (Get.find<ConfigController>().pusherConnectionStatus != null || Get.find<ConfigController>().pusherConnectionStatus == 'Connected'){
       pusherDriverAccepted = pusherClient!.privateChannel("private-driver-trip-accepted.$tripId", authorizationDelegate:
@@ -96,7 +142,8 @@ class PusherHelper {
 
       if(pusherDriverAccepted.currentStatus ==  null){
         pusherDriverAccepted.subscribe();
-        pusherDriverAccepted.bind("driver-trip-accepted.$tripId").listen((event) {
+        // GOJEK-GRADE FIX: Track subscription for cleanup
+        _eventSubscriptions['driver-trip-accepted-$tripId'] = pusherDriverAccepted.bind("driver-trip-accepted.$tripId").listen((event) {
           final data = _safeDecodeData(event.data);
           if (data == null) return;
           Get.find<RideController>().getRideDetails(data['id']?.toString() ?? tripId).then((value){
@@ -132,7 +179,8 @@ class PusherHelper {
 
       if(driverTripStarted.currentStatus == null){
         driverTripStarted.subscribe();
-        driverTripStarted.bind("driver-trip-started.$tripId").listen((event) {
+        // GOJEK-GRADE FIX: Track subscription for cleanup
+        _eventSubscriptions['driver-trip-started-$tripId'] = driverTripStarted.bind("driver-trip-started.$tripId").listen((event) {
           final data = _safeDecodeData(event.data);
           if (data == null) return;
           Get.find<RideController>().startLocationRecord();
@@ -184,7 +232,8 @@ class PusherHelper {
 
       if(driverTripCancelled.currentStatus == null){
         driverTripCancelled.subscribe();
-        driverTripCancelled.bind("driver-trip-cancelled.$tripId").listen((event) async{
+        // GOJEK-GRADE FIX: Track subscription for cleanup
+        _eventSubscriptions['driver-trip-cancelled-$tripId'] = driverTripCancelled.bind("driver-trip-cancelled.$tripId").listen((event) async{
           Get.find<RideController>().stopLocationRecord();
           Get.find<SafetyAlertController>().cancelDriverNeedSafetyStream();
           Get.offAll(const DashboardScreen());
@@ -206,7 +255,8 @@ class PusherHelper {
 
       if(driverTripCompleted.currentStatus ==  null){
         driverTripCompleted.subscribe();
-        driverTripCompleted.bind("driver-trip-completed.$tripId").listen((event) {
+        // GOJEK-GRADE FIX: Track subscription for cleanup
+        _eventSubscriptions['driver-trip-completed-$tripId'] = driverTripCompleted.bind("driver-trip-completed.$tripId").listen((event) {
           final data = _safeDecodeData(event.data);
           if (data == null) return;
           if(data['type'] == AppConstants.parcel){
@@ -245,7 +295,8 @@ class PusherHelper {
       ));
       if(driverPaymentReceived.currentStatus == null){
         driverPaymentReceived.subscribe();
-        driverPaymentReceived.bind("driver-payment-received.$tripId").listen((event) {
+        // GOJEK-GRADE FIX: Track subscription for cleanup
+        _eventSubscriptions['driver-payment-received-$tripId'] = driverPaymentReceived.bind("driver-payment-received.$tripId").listen((event) {
           final data = _safeDecodeData(event.data);
           if (data == null) return;
           if (data['type'] == 'ride_request') {
@@ -296,7 +347,8 @@ class PusherHelper {
 
       if (martOrderStatus.currentStatus == null) {
         martOrderStatus.subscribe();
-        martOrderStatus.bind("mart.order.status.updated").listen((event) {
+        // GOJEK-GRADE FIX: Track subscription for cleanup
+        _eventSubscriptions['mart-order-status-$orderId'] = martOrderStatus.bind("mart.order.status.updated").listen((event) {
           final data = _safeDecodeData(event.data);
           if (data == null) return;
           // Trigger mart controller to refresh order details
@@ -312,6 +364,8 @@ class PusherHelper {
   }
 
   void unsubscribeMartOrderStatus() {
+    // GOJEK-GRADE FIX: Cancel mart order subscription
+    _eventSubscriptions.removeWhere((key, _) => key.contains('mart-order-status'));
     _currentMartOrderChannel?.unsubscribe();
     _currentMartOrderChannel = null;
   }
