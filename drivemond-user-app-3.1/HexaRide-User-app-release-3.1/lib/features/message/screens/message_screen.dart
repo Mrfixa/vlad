@@ -139,7 +139,7 @@ class _MessageScreenState extends State<MessageScreen> {
                           onTap: () => messageController.pickMultipleImage(true,index: index),
                           child: Icon(Icons.cancel_outlined, color: Theme.of(context).colorScheme.error),
                         )),
-                      ]),
+                      ]);
                     },
                   ),
                 ) :
